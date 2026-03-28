@@ -18,6 +18,7 @@ from .core import (
 from .domains import DOMAIN_REGISTRY, DOMAINS_FILE
 from .log import load_log, save_log, PATH_FILE
 from .render import print_path, show_chart, export_pdf
+from .resources import get_resources
 from ._version import __version__
 
 LOG_DISPLAY_LIMIT = 20  # --show-log 展示条数
@@ -46,6 +47,23 @@ def interactive_mode() -> None:
 
     path = generate_path(goal, level, hours_per_week, total_weeks)
     print_path(path)
+
+    # 在线资源推荐（可选）
+    res_ans = input("  🌐 是否获取在线资源推荐？(y/n，默认 n，需要网络)\n> ").strip().lower()
+    if res_ans == "y":
+        domain = path.get("domain", "通用")
+        print(f"\n  📚 在线资源推荐（领域：{domain}）")
+        print("  " + "─" * 54)
+        for stage in path["stages"]:
+            for step in stage["steps"]:
+                step_name = step["name"]
+                recs = get_resources(domain, step_name, use_online=True)
+                if recs:
+                    print(f"\n  【{stage['stage']}】{step_name}")
+                    for rec in recs[:3]:
+                        print(f"    • {rec['title']}")
+                        print(f"      {rec.get('url', '')}")
+        print()
 
     save_ans = input("  💾 是否保存路径？(y/n，默认 y)\n> ").strip().lower()
     if save_ans != "n":
@@ -265,17 +283,50 @@ def list_domains() -> None:
 # 主入口
 # ─────────────────────────────────────────────────────────────────────────────
 
+def fetch_resources_mode() -> None:
+    """加载已保存的 my_path.json，为每个步骤输出在线资源推荐。"""
+    if not os.path.exists(PATH_FILE):
+        print("❌ 未找到已保存的学习路径，请先运行交互式模式生成路径。")
+        return
+    with open(PATH_FILE, encoding="utf-8") as f:
+        path = json.load(f)
+
+    domain = path.get("domain", "通用")
+    print(f"\n📚 在线资源推荐（目标：{path['goal']}，领域：{domain}）")
+    print("═" * 60)
+
+    for stage in path["stages"]:
+        print(f"\n  ▶ 【{stage['stage']}阶段】")
+        for step in stage["steps"]:
+            step_name = step["name"]
+            week_range = step.get("week_range", "")
+            print(f"\n    Step {step['step']}  {step_name}  {week_range}")
+            recs = get_resources(domain, step_name, use_online=True)
+            if recs:
+                for rec in recs[:3]:
+                    title = rec.get("title", "")
+                    url = rec.get("url", "")
+                    channel = rec.get("channel", rec.get("source", ""))
+                    suffix = f"  [{channel}]" if channel else ""
+                    print(f"      • {title}{suffix}")
+                    print(f"        {url}")
+            else:
+                print("      （暂无推荐资源）")
+    print()
+
+
 def main() -> None:
     args = sys.argv[1:]
-    if   "--version"      in args: print(f"个性化学习路径生成器 v{__version__}")
-    elif "--demo"         in args: demo_mode()
-    elif "--track"        in args: track_mode()
-    elif "--log"          in args: add_log_entry()
-    elif "--show-log"     in args: show_log()
-    elif "--chart"        in args: show_chart()
-    elif "--export"       in args: export_pdf()
-    elif "--add-domain"   in args: add_domain()
-    elif "--list-domains" in args: list_domains()
+    if   "--version"         in args: print(f"个性化学习路径生成器 v{__version__}")
+    elif "--demo"            in args: demo_mode()
+    elif "--track"           in args: track_mode()
+    elif "--log"             in args: add_log_entry()
+    elif "--show-log"        in args: show_log()
+    elif "--chart"           in args: show_chart()
+    elif "--export"          in args: export_pdf()
+    elif "--add-domain"      in args: add_domain()
+    elif "--list-domains"    in args: list_domains()
+    elif "--fetch-resources" in args: fetch_resources_mode()
     else: interactive_mode()
 
 

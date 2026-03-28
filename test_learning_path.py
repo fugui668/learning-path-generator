@@ -26,6 +26,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import learning_path as lp
 import learning_path.log as _log_mod
 import learning_path.cli as _cli_mod
+import learning_path.resources as _res_mod
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -790,6 +791,75 @@ class TestCLIInputMock(unittest.TestCase):
             _cli_mod.add_log_entry()
         finally:
             _cli_mod.PATH_FILE = self._tmp_path_file
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# NEW: 资源模块测试
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestResources(unittest.TestCase):
+    """resources.py — CURATED_RESOURCES 与 get_resources / fetch_youtube_resources 测试"""
+
+    # 所有 domains.json 中的领域键（不含通用，通用单独处理）
+    DOMAINS = ["编程", "数据分析", "英语", "中文", "西班牙语", "设计", "产品", "写作", "通用"]
+
+    def test_curated_resources_all_domains(self):
+        """所有领域都应在 CURATED_RESOURCES 中，且每个领域资源 ≥ 3 条。"""
+        for domain in self.DOMAINS:
+            with self.subTest(domain=domain):
+                resources = _res_mod.CURATED_RESOURCES.get(domain)
+                self.assertIsNotNone(resources, f"领域 {domain} 在 CURATED_RESOURCES 中不存在")
+                self.assertGreaterEqual(
+                    len(resources), 3,
+                    f"领域 {domain} 资源数 {len(resources)} < 3"
+                )
+
+    def test_curated_resources_format(self):
+        """每条资源都必须有 title、url、source 字段，且均为非空字符串。"""
+        for domain, resources in _res_mod.CURATED_RESOURCES.items():
+            for i, rec in enumerate(resources):
+                with self.subTest(domain=domain, index=i):
+                    for field in ("title", "url", "source"):
+                        self.assertIn(
+                            field, rec,
+                            f"领域 {domain} 第 {i} 条资源缺少字段 {field}"
+                        )
+                        self.assertIsInstance(rec[field], str)
+                        self.assertGreater(
+                            len(rec[field].strip()), 0,
+                            f"领域 {domain} 第 {i} 条资源字段 {field} 为空"
+                        )
+
+    def test_get_resources_offline_returns_list(self):
+        """use_online=False 时，get_resources 应返回非空列表。"""
+        for domain in self.DOMAINS:
+            with self.subTest(domain=domain):
+                result = _res_mod.get_resources(domain, "基础入门", use_online=False)
+                self.assertIsInstance(result, list)
+                self.assertGreater(len(result), 0, f"领域 {domain} 离线资源为空")
+
+    def test_get_resources_unknown_domain_fallback(self):
+        """未知领域应降级到 '通用' 资源，返回非空列表。"""
+        result = _res_mod.get_resources("烹饪", "基础技巧", use_online=False)
+        self.assertIsInstance(result, list)
+        self.assertGreater(len(result), 0, "未知领域应降级到通用资源")
+        # 结果应与通用资源一致
+        general = _res_mod.CURATED_RESOURCES.get("通用", [])
+        self.assertEqual(result, general)
+
+    def test_fetch_youtube_no_crash(self):
+        """fetch_youtube_resources 在网络失败时应返回 []，不崩溃。"""
+        # 不管网络是否可用，函数都不应抛出异常
+        try:
+            result = _res_mod.fetch_youtube_resources("Python编程")
+            # 成功时：返回 list（可能为空）
+            self.assertIsInstance(result, list)
+            # 每条结果必须有 title、url、channel 字段
+            for rec in result:
+                for field in ("title", "url", "channel"):
+                    self.assertIn(field, rec)
+        except Exception as e:  # noqa: BLE001
+            self.fail(f"fetch_youtube_resources 不应抛出异常，但抛出了：{e}")
 
 
 if __name__ == "__main__":
