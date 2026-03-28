@@ -264,3 +264,20 @@ python3 -m unittest test_learning_path -v
 - **异常输入**（parse_int("")、detect_domain(None)、不存在路径）
 - **CLI mock 测试**（track_mode / add_log_entry / interactive_mode 完整流程）
 - 100 组随机参数压测
+
+## 🌐 Web 界面
+
+```bash
+pip install flask
+python3 -m learning_path --web
+# 访问 http://localhost:5000
+```
+
+支持功能：生成学习路径 / 进度追踪打卡 / 图表可视化 / PDF 导出
+
+也可以直接在 `web/` 目录下启动：
+
+```bash
+cd web
+python3 app.py
+```

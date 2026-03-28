@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}学习路径详情 · {{ path.goal }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>🗺️ 学习路径详情</h1>
+  <p class="subtitle">{{ path.goal }}</p>
+</div>
+
+<!-- 路径概要卡片 -->
+<div class="card summary-card">
+  <div class="summary-grid">
+    <div class="summary-item">
+      <span class="summary-label">🎯 目标</span>
+      <span class="summary-value">{{ path.goal }}</span>
+    </div>
+    <div class="summary-item">
+      <span class="summary-label">📊 当前水平</span>
+      <span class="summary-value">{{ path.level }}</span>
+    </div>
+    <div class="summary-item">
+      <span class="summary-label">🔖 识别领域</span>
+      <span class="summary-value">{{ path.domain }}</span>
+    </div>
+    <div class="summary-item">
+      <span class="summary-label">⏰ 每周时间</span>
+      <span class="summary-value">{{ path.hours_per_week }} 小时</span>
+    </div>
+    <div class="summary-item">
+      <span class="summary-label">📅 计划周期</span>
+      <span class="summary-value">{{ path.total_weeks }} 周</span>
+    </div>
+    <div class="summary-item">
+      <span class="summary-label">🗓 生成时间</span>
+      <span class="summary-value">{{ path.generated_at[:10] }}</span>
+    </div>
+  </div>
+</div>
+
+<!-- 阶段展示 -->
+{% for stage in path.stages %}
+<details class="stage-block" open>
+  <summary class="stage-summary">
+    <span class="stage-badge stage-{{ loop.index }}">{{ stage.stage }}阶段</span>
+    <span class="stage-meta">约 {{ stage.weeks }} 周</span>
+    <span class="stage-steps-count">{{ stage.steps | length }} 个步骤</span>
+  </summary>
+
+  <div class="steps-list">
+    {% for step in stage.steps %}
+    <div class="step-card">
+      <div class="step-header">
+        <span class="step-index">Step {{ step._index }}</span>
+        <h3 class="step-name">{{ step.name }}</h3>
+        <span class="step-meta">{{ step.week_range }} &nbsp;·&nbsp; {{ step.hours_total }}h</span>
+      </div>
+
+      <div class="step-body">
+        <div class="step-section">
+          <span class="section-label">🏆 里程碑</span>
+          <p>{{ step.milestone }}</p>
+        </div>
+
+        <div class="step-section">
+          <span class="section-label">📦 推荐资源</span>
+          <ul class="resource-list">
+            {% for r in step.resources %}
+            <li>{{ r }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+
+        <div class="step-section">
+          <span class="section-label">✅ 掌握度检验</span>
+          <ul class="checkpoint-list">
+            {% for c in step.checkpoints %}
+            <li>{{ c }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</details>
+{% endfor %}
+
+<!-- 动态调整原则 -->
+<div class="card tips-card">
+  <h3>💡 动态调整原则</h3>
+  <ul class="tips-list">
+    <li><strong>落后 1 周：</strong>加密度，跳扩展，专注核心</li>
+    <li><strong>落后 3 周：</strong>重新规划里程碑，降低深度要求</li>
+    <li><strong>落后 5 周+：</strong>重评目标，从最近完成点重启</li>
+  </ul>
+</div>
+
+<!-- 底部操作按钮 -->
+<div class="action-bar">
+  <a href="{{ url_for('progress') }}" class="btn btn-primary">
+    📊 开始追踪进度
+  </a>
+  <a href="{{ url_for('export') }}" class="btn btn-secondary">
+    📄 导出 PDF
+  </a>
+  <a href="{{ url_for('index') }}" class="btn btn-ghost">
+    ✏️ 重新生成
+  </a>
+</div>
+{% endblock %}

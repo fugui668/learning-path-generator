@@ -315,6 +315,34 @@ def fetch_resources_mode() -> None:
     print()
 
 
+
+def web_mode() -> None:
+    """启动 Flask Web 界面（localhost:5000）。"""
+    import importlib.util as _ilu
+    import os as _os
+
+    if _ilu.find_spec("flask") is None:
+        print("未安装 Flask，请先运行：pip install flask")
+        sys.exit(1)
+
+    pkg_dir = _os.path.dirname(_os.path.abspath(__file__))
+    project_dir = _os.path.dirname(pkg_dir)
+    app_py = _os.path.join(project_dir, "web", "app.py")
+
+    if not _os.path.exists(app_py):
+        print("未找到 web/app.py：" + app_py)
+        sys.exit(1)
+
+    print("学习路径生成器 Web 界面 v" + __version__)
+    print("访问：http://localhost:5000")
+    print("按 Ctrl+C 停止")
+
+    spec = _ilu.spec_from_file_location("web.app", app_py)
+    module = _ilu.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    module.app.run(debug=False, host="0.0.0.0", port=5000)
+
+
 def main() -> None:
     args = sys.argv[1:]
     if   "--version"         in args: print(f"个性化学习路径生成器 v{__version__}")
@@ -327,6 +355,7 @@ def main() -> None:
     elif "--add-domain"      in args: add_domain()
     elif "--list-domains"    in args: list_domains()
     elif "--fetch-resources" in args: fetch_resources_mode()
+    elif "--web"            in args: web_mode()
     else: interactive_mode()
 
 

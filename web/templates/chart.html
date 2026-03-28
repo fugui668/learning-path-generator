@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% block title %}学习图表 · 学习路径生成器{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>📈 学习进度图表</h1>
+  <p class="subtitle">可视化你的学习数据</p>
+</div>
+
+<!-- 统计摘要 -->
+<div class="stats-row">
+  <div class="stat-card">
+    <div class="stat-number">{{ total_entries }}</div>
+    <div class="stat-label">打卡次数</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-number">{{ total_hours }}</div>
+    <div class="stat-label">累计学习时长（h）</div>
+  </div>
+</div>
+
+{% if total_entries == 0 %}
+<div class="card">
+  <div class="empty-state">
+    <p>📭 暂无学习记录。</p>
+    <p>前往 <a href="{{ url_for('progress') }}">进度打卡页</a> 开始记录学习吧！</p>
+  </div>
+</div>
+{% else %}
+
+<!-- 每日学习时长柱状图 -->
+<div class="card chart-card">
+  <h2>📊 每日学习时长（最近 14 天）</h2>
+  <div class="chart-wrap">
+    <canvas id="dailyChart"></canvas>
+  </div>
+</div>
+
+<!-- 累计进度折线图 -->
+<div class="card chart-card">
+  <h2>📈 累计进度百分比</h2>
+  {% if cumulative_labels | length > 0 %}
+  <div class="chart-wrap">
+    <canvas id="cumulativeChart"></canvas>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <p>暂无足够数据渲染累计图表。</p>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+const BLUE        = 'rgba(59, 130, 246, 0.85)';
+const BLUE_BORDER = 'rgba(37, 99, 235, 1)';
+const GREEN       = 'rgba(16, 185, 129, 0.85)';
+const GREEN_LINE  = 'rgba(5, 150, 105, 1)';
+
+// 每日柱状图
+const dailyCtx = document.getElementById('dailyChart');
+if (dailyCtx) {
+  new Chart(dailyCtx, {
+    type: 'bar',
+    data: {
+      labels: {{ daily_labels | safe }},
+      datasets: [{
+        label: '学习时长（小时）',
+        data: {{ daily_values | safe }},
+        backgroundColor: BLUE,
+        borderColor: BLUE_BORDER,
+        borderWidth: 1,
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => ` ${ctx.parsed.y} 小时`
+          }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: { stepSize: 1 },
+          title: { display: true, text: '小时' }
+        },
+        x: {
+          ticks: {
+            maxRotation: 45,
+            callback: function(val, idx) {
+              const d = this.getLabelForValue(val);
+              return d ? d.slice(5) : '';   // MM-DD
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+// 累计进度折线图
+const cumCtx = document.getElementById('cumulativeChart');
+if (cumCtx) {
+  new Chart(cumCtx, {
+    type: 'line',
+    data: {
+      labels: {{ cumulative_labels | safe }},
+      datasets: [{
+        label: '累计进度（%）',
+        data: {{ cumulative_values | safe }},
+        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+        borderColor: GREEN_LINE,
+        borderWidth: 2,
+        pointBackgroundColor: GREEN_LINE,
+        pointRadius: 4,
+        fill: true,
+        tension: 0.3,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => ` ${ctx.parsed.y}%`
+          }
+        }
+      },
+      scales: {
+        y: {
+          min: 0,
+          max: 100,
+          ticks: {
+            callback: (v) => v + '%'
+          },
+          title: { display: true, text: '进度 (%)' }
+        },
+        x: {
+          ticks: {
+            maxRotation: 45,
+            callback: function(val, idx) {
+              const d = this.getLabelForValue(val);
+              return d ? d.slice(5) : '';
+            }
+          }
+        }
+      }
+    }
+  });
+}
+</script>
+
+{% endif %}
+
+<div class="action-bar">
+  <a href="{{ url_for('progress') }}" class="btn btn-primary">✏️ 去打卡</a>
+  <a href="{{ url_for('path_detail') }}" class="btn btn-secondary">🗺️ 查看路径</a>
+</div>
+{% endblock %}

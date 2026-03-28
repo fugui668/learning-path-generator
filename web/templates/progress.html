@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}进度追踪 · 学习路径生成器{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>📊 进度追踪 & 打卡</h1>
+  <p class="subtitle">{{ path.goal }}</p>
+</div>
+
+<!-- 当前进度卡片 -->
+<div class="card current-step-card">
+  <h2>📍 当前进度</h2>
+  <div class="current-week">
+    <span class="week-badge">第 {{ current_week }} 周</span>
+    <span class="week-of">/ {{ path.total_weeks }} 周</span>
+  </div>
+
+  {% if step_detail %}
+  <div class="current-step-info">
+    <div class="step-tag">{{ step_detail.stage }}阶段</div>
+    <div class="step-title">{{ step_detail.name }}</div>
+  </div>
+  {% else %}
+  <p class="text-muted">计划周期已结束或暂无匹配步骤</p>
+  {% endif %}
+
+  <!-- 进度条 -->
+  {% set pct = [((current_week / path.total_weeks) * 100) | int, 100] | min %}
+  <div class="progress-wrap">
+    <div class="progress-bar">
+      <div class="progress-fill" style="width: {{ pct }}%"></div>
+    </div>
+    <span class="progress-pct">{{ pct }}%</span>
+  </div>
+</div>
+
+<!-- 今日打卡表单 -->
+<div class="card checkin-card">
+  <h2>✏️ 今日打卡</h2>
+  <p class="text-muted">今天：{{ today }}</p>
+
+  <form action="{{ url_for('log_entry') }}" method="post">
+    <div class="form-group">
+      <label for="hours">⏰ 学习时长（小时）</label>
+      <input
+        type="number"
+        id="hours"
+        name="hours"
+        class="form-input form-input-sm"
+        value="1"
+        min="0"
+        max="24"
+        step="0.5"
+        required
+      >
+    </div>
+
+    <div class="form-group checkbox-group">
+      <label class="checkbox-label">
+        <input type="checkbox" name="milestone_done" id="milestone_done">
+        <span class="checkbox-text">🏆 今天完成了里程碑</span>
+      </label>
+    </div>
+
+    <div class="form-group">
+      <label for="note">📝 备注（可选）</label>
+      <textarea
+        id="note"
+        name="note"
+        class="form-textarea"
+        rows="2"
+        placeholder="今天学了什么，遇到了什么问题…"
+      ></textarea>
+    </div>
+
+    <button type="submit" class="btn btn-primary">
+      ✅ 提交打卡
+    </button>
+  </form>
+</div>
+
+<!-- 最近5条记录 -->
+<div class="card log-card">
+  <h2>📖 最近学习记录</h2>
+
+  {% if recent %}
+  <div class="log-list">
+    {% for entry in recent %}
+    <div class="log-item">
+      <div class="log-meta">
+        <span class="log-date">{{ entry.date }}</span>
+        <span class="log-hours">⏱ {{ entry.hours }}h</span>
+        {% if entry.milestone_done %}
+        <span class="log-badge badge-success">🏆 里程碑</span>
+        {% endif %}
+      </div>
+      <div class="log-step">
+        <span class="log-stage">{{ entry.stage }}</span>
+        <span class="log-name">{{ entry.step }}</span>
+      </div>
+      {% if entry.note %}
+      <div class="log-note">💬 {{ entry.note }}</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="log-footer">
+    <a href="{{ url_for('chart') }}" class="btn btn-ghost">📈 查看完整图表</a>
+  </div>
+
+  {% else %}
+  <div class="empty-state">
+    <p>📭 暂无学习记录，今天就开始第一次打卡吧！</p>
+  </div>
+  {% endif %}
+</div>
+
+<!-- 操作栏 -->
+<div class="action-bar">
+  <a href="{{ url_for('path_detail') }}" class="btn btn-secondary">🗺️ 查看完整路径</a>
+  <a href="{{ url_for('chart') }}" class="btn btn-secondary">📈 学习图表</a>
+</div>
+{% endblock %}
