@@ -12,8 +12,7 @@ Personalized Learning Path Generator
 import json
 import os
 import sys
-import math
-from datetime import datetime, timedelta
+from datetime import datetime
 
 # ─────────────────────────────────────────────
 # 配置：阶段模板库
@@ -157,31 +156,48 @@ def generate_path(goal: str, level: str, hours_per_week: int, total_weeks: int) 
     stage_order = ["入门", "进阶", "高级"]
     start_idx = stage_order.index(start_stage)
     
-    # 计算每阶段可用周数
+    # 计算每阶段应分配的周数（按模板权重均匀分配）
+    active_stages = stage_order[start_idx:]
+    stage_template_weeks = {
+        s: sum(step["weeks"] for step in stages_template[s])
+        for s in active_stages
+    }
+    total_template_weeks = sum(stage_template_weeks.values())
+    
+    # 按权重预分配各阶段周数，确保每阶段至少 2 周
+    stage_alloc = {}
+    leftover = total_weeks
+    for s in active_stages[:-1]:
+        alloc = max(2, round(total_weeks * stage_template_weeks[s] / total_template_weeks))
+        stage_alloc[s] = alloc
+        leftover -= alloc
+    stage_alloc[active_stages[-1]] = max(2, leftover)
+
     remaining_weeks = total_weeks
     path_stages = []
-    
-    for stage_name in stage_order[start_idx:]:
+    week_cursor = 0  # 全局周数游标，用于显示正确的周次范围
+
+    for stage_name in active_stages:
         if remaining_weeks <= 0:
             break
-        
+
+        alloc_weeks = stage_alloc[stage_name]
         template_steps = stages_template[stage_name]
         total_stage_weeks = sum(s["weeks"] for s in template_steps)
-        
-        # 按比例压缩/扩展周数
-        scale = remaining_weeks / total_stage_weeks
-        scale = max(0.5, min(scale, 2.0))  # 压缩比限制在 0.5x ~ 2x
-        
+
+        # 按比例压缩/扩展本阶段步骤周数（限制在 0.5x~2x）
+        scale = max(0.5, min(alloc_weeks / total_stage_weeks, 2.0))
+
         steps = []
         stage_weeks_used = 0
         for i, step in enumerate(template_steps):
             adjusted_weeks = max(1, round(step["weeks"] * scale))
             if i == len(template_steps) - 1:
-                # 最后一步消耗剩余周数
-                adjusted_weeks = max(1, remaining_weeks - stage_weeks_used)
-            
-            start_week = stage_weeks_used + 1
-            end_week = stage_weeks_used + adjusted_weeks
+                # 最后一步消耗本阶段剩余周数，防止累积误差
+                adjusted_weeks = max(1, alloc_weeks - stage_weeks_used)
+
+            start_week = week_cursor + stage_weeks_used + 1
+            end_week = start_week + adjusted_weeks - 1
             steps.append({
                 "step": len(steps) + 1,
                 "name": step["name"],
@@ -193,18 +209,14 @@ def generate_path(goal: str, level: str, hours_per_week: int, total_weeks: int) 
                 "checkpoints": CHECKPOINTS[stage_name],
             })
             stage_weeks_used += adjusted_weeks
-            if stage_weeks_used >= remaining_weeks:
-                break
-        
+
+        week_cursor += stage_weeks_used
         path_stages.append({
             "stage": stage_name,
             "weeks": stage_weeks_used,
             "steps": steps,
         })
-        
         remaining_weeks -= stage_weeks_used
-        if remaining_weeks < 2:
-            break
     
     return {
         "goal": goal,
@@ -292,7 +304,11 @@ def interactive_mode():
     for i, l in enumerate(levels, 1):
         print(f"  {i}. {l}")
     level_input = input("> ").strip()
-    level = levels[int(level_input) - 1] if level_input.isdigit() and 1 <= int(level_input) <= 4 else "零基础"
+    if level_input.isdigit() and 1 <= int(level_input) <= 4:
+        level = levels[int(level_input) - 1]
+    else:
+        print("  ⚠️  输入无效，默认使用「零基础」")
+        level = "零基础"
     
     hours_input = input("\n⏰ 每周可用学习时间（小时，建议 5~20）：\n> ").strip()
     hours_per_week = int(hours_input) if hours_input.isdigit() else 10
@@ -303,16 +319,16 @@ def interactive_mode():
     path = generate_path(goal, level, hours_per_week, total_weeks)
     print_path(path)
     
-    # 保存到文件
-    save_path = os.path.expanduser("~/.openclaw/workspace/learning-path-generator/my_path.json")
+    # 保存到当前目录
+    save_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "my_path.json")
     with open(save_path, "w", encoding="utf-8") as f:
         json.dump(path, f, ensure_ascii=False, indent=2)
-    print(f"  💾 路径已保存至：my_path.json\n")
+    print(f"  💾 路径已保存至：{save_path}\n")
 
 
 def track_mode():
     """进度追踪模式"""
-    save_path = os.path.expanduser("~/.openclaw/workspace/learning-path-generator/my_path.json")
+    save_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "my_path.json")
     if not os.path.exists(save_path):
         print("❌ 未找到已保存的学习路径，请先运行交互式模式生成路径。")
         return
