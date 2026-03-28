@@ -67,7 +67,7 @@ class TestParseInt(unittest.TestCase):
 
 class TestDetectDomain(unittest.TestCase):
     def test_programming(self):
-        self.assertEqual(lp.detect_domain("学 Python 做数据处理"), "编程")
+        self.assertEqual(lp.detect_domain("学 Python 编程写代码"), "编程")
 
     def test_data_analysis(self):
         self.assertEqual(lp.detect_domain("深入学习机器学习，参加 Kaggle"), "数据分析")
@@ -98,8 +98,18 @@ class TestDetectDomain(unittest.TestCase):
         self.assertEqual(lp.detect_domain("PYTHON 编程"), "编程")
 
     def test_most_keywords_wins(self):
-        # "数据分析 机器学习 kaggle" 命中数据分析 3 次，vs 编程 0 次
+        # 命中数多的领域胜出：数据分析 3 次 vs 编程 0 次
         self.assertEqual(lp.detect_domain("数据分析 机器学习 kaggle"), "数据分析")
+
+    def test_priority_breaks_tie(self):
+        # 「写Python代码做数据分析」：
+        # 编程命中 python/代码 (2次 priority=5)
+        # 数据分析命中 数据分析/做数据 (2次 priority=8) → priority 决胜
+        self.assertEqual(lp.detect_domain("写Python代码做数据分析"), "数据分析")
+
+    def test_pure_programming_not_hijacked(self):
+        # 纯编程目标（不含数据分析关键词）仍应识别为编程
+        self.assertEqual(lp.detect_domain("学Python编程写后端服务"), "编程")
 
 
 # ─────────────────────────────────────────────────────────────────────────────

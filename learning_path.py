@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-个性化学习路径生成器 v3.0
+个性化学习路径生成器 v3.1
 Personalized Learning Path Generator
 
 使用方法:
@@ -28,12 +28,14 @@ LOG_DISPLAY_LIMIT = 20  # --show-log 展示条数
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 领域注册表
-# 结构：每个领域 = { "keywords": [...], "stages": { 入门/进阶/高级: [...] } }
+# 结构：每个领域 = { "priority": int, "keywords": [...], "stages": { 入门/进阶/高级: [...] } }
+# priority：关键词命中数相同时，priority 高的领域优先（数字越大越优先）。
 # 新增领域只需在此添加一个 entry，其他代码无需改动。
 # ─────────────────────────────────────────────────────────────────────────────
 
 DOMAIN_REGISTRY: dict = {
     "编程": {
+        "priority": 5,
         "keywords": ["编程", "python", "java", "javascript", "c++", "代码", "开发",
                      "前端", "后端", "算法", "programming", "coding", "软件"],
         "stages": {
@@ -55,8 +57,10 @@ DOMAIN_REGISTRY: dict = {
         },
     },
     "数据分析": {
+        "priority": 8,
         "keywords": ["数据分析", "数据科学", "机器学习", "深度学习", "统计",
-                     "data science", "data analysis", "kaggle", "pandas", "sklearn"],
+                     "data science", "data analysis", "kaggle", "pandas", "sklearn",
+                     "python数据", "python分析", "用python做", "做数据"],
         "stages": {
             "入门": [
                 {"name": "数据思维与 Excel 基础",  "weeks": 1, "milestone": "能用 Excel 完成数据透视表分析"},
@@ -76,6 +80,7 @@ DOMAIN_REGISTRY: dict = {
         },
     },
     "英语": {
+        "priority": 7,
         "keywords": ["英语", "english", "雅思", "托福", "ielts", "toefl", "英文口语", "英文写作"],
         "stages": {
             "入门": [
@@ -96,6 +101,7 @@ DOMAIN_REGISTRY: dict = {
         },
     },
     "中文": {
+        "priority": 7,
         "keywords": ["中文", "汉语", "普通话", "hsk", "chinese", "汉字"],
         "stages": {
             "入门": [
@@ -116,6 +122,7 @@ DOMAIN_REGISTRY: dict = {
         },
     },
     "西班牙语": {
+        "priority": 9,
         "keywords": ["西班牙语", "español", "spanish", "dele", "西语"],
         "stages": {
             "入门": [
@@ -136,6 +143,7 @@ DOMAIN_REGISTRY: dict = {
         },
     },
     "设计": {
+        "priority": 6,
         "keywords": ["设计", "ui", "ux", "figma", "photoshop", "illustrator",
                      "design", "排版", "视觉", "交互设计", "品牌设计"],
         "stages": {
@@ -157,6 +165,7 @@ DOMAIN_REGISTRY: dict = {
         },
     },
     "产品": {
+        "priority": 6,
         "keywords": ["产品经理", "产品设计", "product", "prd", "需求文档",
                      "原型", "用户研究", "增长", "产品规划"],
         "stages": {
@@ -178,6 +187,7 @@ DOMAIN_REGISTRY: dict = {
         },
     },
     "写作": {
+        "priority": 5,
         "keywords": ["写作", "writing", "文章", "创作", "小说", "博客", "内容创作",
                      "文案", "剧本", "非虚构"],
         "stages": {
@@ -199,6 +209,7 @@ DOMAIN_REGISTRY: dict = {
         },
     },
     "通用": {
+        "priority": 1,
         "keywords": [],   # 兜底，关键词为空，匹配不到其他领域时使用
         "stages": {
             "入门": [
@@ -288,16 +299,19 @@ def parse_int(s: str, default: int) -> int:
 def detect_domain(goal: str) -> str:
     """
     基于 DOMAIN_REGISTRY 关键词匹配领域。
-    优先匹配命中关键词最多的领域；无命中则返回「通用」。
+    排序规则（优先级从高到低）：
+      1. 命中关键词数量（越多越优先）
+      2. 领域 priority 字段（数字越大越优先，解决平局）
+    无命中则返回「通用」。
     """
     g = goal.lower()
-    scores: dict[str, int] = {}
+    scores: dict[str, tuple[int, int]] = {}   # domain -> (hit_count, priority)
     for domain, info in DOMAIN_REGISTRY.items():
         if domain == "通用":
             continue
-        score = sum(1 for kw in info["keywords"] if kw in g)
-        if score > 0:
-            scores[domain] = score
+        hit = sum(1 for kw in info["keywords"] if kw in g)
+        if hit > 0:
+            scores[domain] = (hit, info.get("priority", 0))
     if not scores:
         return "通用"
     return max(scores, key=lambda d: scores[d])
