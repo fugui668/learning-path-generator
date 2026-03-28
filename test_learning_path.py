@@ -111,6 +111,23 @@ class TestDetectDomain(unittest.TestCase):
         # 纯编程目标（不含数据分析关键词）仍应识别为编程
         self.assertEqual(lp.detect_domain("学Python编程写后端服务"), "编程")
 
+    def test_negation_filter_chinese(self):
+        # 「不想学Python」应过滤掉 python，转而识别实际目标
+        self.assertEqual(lp.detect_domain("我不想学Python，想做UI设计"), "设计")
+        self.assertEqual(lp.detect_domain("不想学编程，想备考雅思"), "英语")
+        self.assertEqual(lp.detect_domain("不打算考雅思，想学西班牙语"), "西班牙语")
+
+    def test_negation_filter_english(self):
+        # 英文否定词也应过滤
+        self.assertEqual(
+            lp.detect_domain("don't want to learn python, focus on design"), "设计"
+        )
+
+    def test_negation_does_not_affect_affirmed_keywords(self):
+        # 没有否定词时正常识别
+        self.assertEqual(lp.detect_domain("学Python编程写后端"), "编程")
+        self.assertEqual(lp.detect_domain("备考雅思7分"), "英语")
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 路径生成

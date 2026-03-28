@@ -303,13 +303,26 @@ def detect_domain(goal: str) -> str:
       1. 命中关键词数量（越多越优先）
       2. 领域 priority 字段（数字越大越优先，解决平局）
     无命中则返回「通用」。
+
+    否定词过滤：「不想/不学/不做/不需要/不打算/不考虑/don't/not」
+    前面的关键词不算命中，避免「我不想学Python」误识别为编程。
     """
+    import re as _re
+
+    # 否定词模式：否定词 + 任意非标点字符（中英文空格）+ 关键词
+    _NEG_PATTERN = _re.compile(
+        r"(不想|不学|不做|不需要|不打算|不考虑|don'?t\s+want|not\s+(?:learn|study|do))\s*\S{0,6}",
+        _re.IGNORECASE,
+    )
     g = goal.lower()
+    # 把否定片段替换为占位符，避免其中的关键词被命中
+    masked = _NEG_PATTERN.sub("__NEG__", g)
+
     scores: dict[str, tuple[int, int]] = {}   # domain -> (hit_count, priority)
     for domain, info in DOMAIN_REGISTRY.items():
         if domain == "通用":
             continue
-        hit = sum(1 for kw in info["keywords"] if kw in g)
+        hit = sum(1 for kw in info["keywords"] if kw in masked)
         if hit > 0:
             scores[domain] = (hit, info.get("priority", 0))
     if not scores:
@@ -377,10 +390,13 @@ def _build_steps(stage_name: str, alloc_weeks: int, hours_per_week: int,
     effective = list(template_steps)
     while len(effective) > alloc_weeks:
         last = effective.pop()
+        prev = effective[-1]
+        # 名称保留两者，里程碑拼接摘要（各取前20字）
+        merged_milestone = f"{prev['milestone'][:20]}… / {last['milestone'][:20]}…"
         effective[-1] = {
-            "name":      effective[-1]["name"] + " & " + last["name"],
-            "weeks":     effective[-1]["weeks"] + last["weeks"],
-            "milestone": last["milestone"],   # 用最终里程碑
+            "name":      prev["name"] + " & " + last["name"],
+            "weeks":     prev["weeks"] + last["weeks"],
+            "milestone": merged_milestone,
         }
 
     n = len(effective)
@@ -777,6 +793,21 @@ def interactive_mode() -> None:
     print(f"  💾 路径已保存至：{PATH_FILE}\n")
 
 
+def _locate_current_step(path: dict, current_week: int) -> str:
+    """根据当前第几周，返回「📍 你现在在：[阶段] StepN - 步骤名（第X~Y周）」定位文本。"""
+    for stage in path.get("stages", []):
+        for step in stage.get("steps", []):
+            parts = step["week_range"].replace("第", "").replace("周", "").split("~")
+            s, e = int(parts[0].strip()), int(parts[1].strip())
+            if s <= current_week <= e:
+                return (f"📍 你现在在：[{stage['stage']}阶段] "
+                        f"Step {step['step']} - {step['name']}（{step['week_range']}）")
+    total = sum(st["weeks"] for st in path.get("stages", []))
+    if current_week > total:
+        return f"🎉 恭喜！你已完成全部 {total} 周计划！"
+    return f"📍 第 {current_week} 周（计划共 {total} 周）"
+
+
 def track_mode() -> None:
     if not os.path.exists(PATH_FILE):
         print("❌ 未找到已保存的学习路径，请先运行交互式模式生成路径。")
@@ -784,7 +815,11 @@ def track_mode() -> None:
     with open(PATH_FILE, encoding="utf-8") as f:
         path = json.load(f)
     print(f"\n📂 已加载学习路径：{path['goal']}")
-    delay_weeks = parse_int(input("⚠️  当前落后进度（周数，0 表示正常）：\n> "), 0)
+
+    current_week = parse_int(input("📅 你目前进行到第几周了？\n> "), 1)
+    print(f"\n{_locate_current_step(path, current_week)}")
+
+    delay_weeks = parse_int(input("\n⚠️  当前落后进度（周数，0 表示正常）：\n> "), 0)
     if delay_weeks == 0:
         print("\n✅ 进度正常，继续按计划推进，加油！")
     else:
