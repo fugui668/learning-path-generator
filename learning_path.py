@@ -1,17 +1,22 @@
 #!/usr/bin/env python3
 """
-个性化学习路径生成器 v3.3
+个性化学习路径生成器 v3.5
 Personalized Learning Path Generator
 
 使用方法:
   python3 learning_path.py            # 交互式生成
   python3 learning_path.py --demo     # 运行示例
-  python3 learning_path.py --track    # 进度追踪 + 动态调整
-  python3 learning_path.py --log      # 记录今日学习
+  python3 learning_path.py --track    # 进度追踪 + 动态调整（自动推算当前周）
+  python3 learning_path.py --log      # 记录今日学习（自动关联步骤）
   python3 learning_path.py --show-log # 查看历史学习日志
-  python3 learning_path.py --chart    # ASCII 进度图表
+  python3 learning_path.py --chart    # ASCII 进度图表（ANSI 颜色）
   python3 learning_path.py --export   # 导出 PDF 报告
+  python3 learning_path.py --list-domains  # 查看所有领域
+  python3 learning_path.py --add-domain    # 新增自定义领域
+  python3 learning_path.py --version       # 查看版本号
 """
+
+__version__ = "3.5"
 
 import json
 import os
@@ -313,8 +318,27 @@ def save_log(entries: list) -> None:
         json.dump(entries, f, ensure_ascii=False, indent=2)
 
 
+def _find_step_by_week(path: dict, week: int) -> tuple[int, dict] | tuple[None, None]:
+    """根据当前周，返回 (全局步骤编号, step_info dict) 或 (None, None)。"""
+    idx = 0
+    for stage in path["stages"]:
+        for step in stage["steps"]:
+            idx += 1
+            wr = step.get("week_range", "")
+            # 解析 "第X周" 或 "第X~Y周"
+            try:
+                nums = [int(n) for n in wr.replace("第","").replace("周","").replace(" ","").split("~")]
+                start_w = nums[0]
+                end_w   = nums[-1]
+                if start_w <= week <= end_w:
+                    return idx, {"stage": stage["stage"], "name": step["name"]}
+            except (ValueError, IndexError):
+                pass
+    return None, None
+
+
 def add_log_entry() -> None:
-    """记录今日学习情况。"""
+    """记录今日学习情况（自动关联当前步骤）。"""
     if not os.path.exists(PATH_FILE):
         print("❌ 未找到学习路径，请先运行交互式模式生成路径。")
         return
@@ -326,14 +350,34 @@ def add_log_entry() -> None:
 
     hours = parse_float(input("⏰ 今天学了多少小时？（支持小数，如 1.5）\n> "), 0.0)
 
-    print("\n📋 选择今天学习的步骤（输入编号）：")
+    # 构建步骤列表（编号 → info）
     step_global, step_map = 0, {}
     for stage in path["stages"]:
         for step in stage["steps"]:
             step_global += 1
-            print(f"  {step_global}. [{stage['stage']}] {step['name']}")
-            step_map[str(step_global)] = {"stage": stage["stage"], "name": step["name"]}
-    step_info = step_map.get(input("> ").strip(), {"stage": "未知", "name": "自由学习"})
+            step_map[step_global] = {"stage": stage["stage"], "name": step["name"]}
+
+    # 自动推算当前步骤
+    inferred_week = _infer_current_week(path)
+    auto_idx, auto_info = (None, None)
+    if inferred_week:
+        auto_idx, auto_info = _find_step_by_week(path, inferred_week)
+
+    if auto_idx and auto_info:
+        print(f"\n📋 根据当前周（第 {inferred_week} 周）自动匹配到步骤：")
+        print(f"   [{auto_idx}] [{auto_info['stage']}] {auto_info['name']}")
+        ans = input("   使用此步骤？(y/n，默认 y)\n> ").strip().lower()
+        if ans == "n":
+            auto_idx = None
+
+    if not auto_idx:
+        print("\n📋 选择今天学习的步骤（输入编号）：")
+        for num, info in step_map.items():
+            print(f"  {num}. [{info['stage']}] {info['name']}")
+        chosen = parse_int(input("> ").strip(), 0)
+        auto_info = step_map.get(chosen, {"stage": "未知", "name": "自由学习"})
+
+    step_info = auto_info
 
     done = input("\n✅ 今天的里程碑完成了吗？(y/n)\n> ").strip().lower() == "y"
     note = input("\n📝 备注（可选，回车跳过）：\n> ").strip()
@@ -345,7 +389,7 @@ def add_log_entry() -> None:
         "milestone_done": done, "note": note,
     })
     save_log(entries)
-    print(f"\n✅ 已记录 {date_str} 的学习日志（{hours}h）\n")
+    print(f"\n✅ 已记录 {date_str} 的学习日志（{hours}h  [{step_info['stage']}] {step_info['name']}）\n")
 
 
 def show_log() -> None:
@@ -645,6 +689,20 @@ def _locate_current_step(path: dict, current_week: int) -> str:
     return f"📍 第 {current_week} 周（计划共 {total} 周）"
 
 
+def _infer_current_week(path: dict) -> int | None:
+    """从 my_path.json 的生成时间推算当前第几周（基于自然日）。"""
+    generated_at = path.get("generated_at", "")
+    if not generated_at:
+        return None
+    try:
+        start = datetime.strptime(generated_at[:10], "%Y-%m-%d")
+        elapsed_days = (datetime.now() - start).days
+        week = max(1, elapsed_days // 7 + 1)
+        return min(week, path["total_weeks"])
+    except (ValueError, KeyError):
+        return None
+
+
 def track_mode() -> None:
     if not os.path.exists(PATH_FILE):
         print("❌ 未找到已保存的学习路径，请先运行交互式模式生成路径。")
@@ -652,8 +710,20 @@ def track_mode() -> None:
     with open(PATH_FILE, encoding="utf-8") as f:
         path = json.load(f)
     print(f"\n📂 已加载学习路径：{path['goal']}")
+    print(f"   生成日期：{path.get('generated_at', '未知')[:10]}  |  计划总周数：{path['total_weeks']} 周")
 
-    current_week = parse_int(input("📅 你目前进行到第几周了？\n> "), 1)
+    # 自动推算当前周
+    inferred = _infer_current_week(path)
+    if inferred:
+        print(f"\n🗓  根据生成日期自动推算：当前约第 {inferred} 周")
+        ans = input(f"   是否使用此推算值？(y/n，默认 y)\n> ").strip().lower()
+        if ans == "n":
+            current_week = parse_int(input("📅 请手动输入当前第几周：\n> "), 1)
+        else:
+            current_week = inferred
+    else:
+        current_week = parse_int(input("📅 你目前进行到第几周了？\n> "), 1)
+
     print(f"\n{_locate_current_step(path, current_week)}")
 
     delay_weeks = parse_int(input("\n⚠️  当前落后进度（周数，0 表示正常）：\n> "), 0)
@@ -755,7 +825,8 @@ def list_domains() -> None:
 
 if __name__ == "__main__":
     args = sys.argv[1:]
-    if   "--demo"         in args: demo_mode()
+    if   "--version"      in args: print(f"个性化学习路径生成器 v{__version__}")
+    elif "--demo"         in args: demo_mode()
     elif "--track"        in args: track_mode()
     elif "--log"          in args: add_log_entry()
     elif "--show-log"     in args: show_log()

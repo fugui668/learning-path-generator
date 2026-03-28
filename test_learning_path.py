@@ -438,6 +438,65 @@ class TestDomainRegistry(unittest.TestCase):
 # _locate_current_step 单元测试
 # ─────────────────────────────────────────────────────────────────────────────
 
+class TestInferCurrentWeek(unittest.TestCase):
+    """覆盖 _infer_current_week 的各类边界情况。"""
+
+    def _make_path(self, generated_at: str, total_weeks: int = 20) -> dict:
+        return {"generated_at": generated_at, "total_weeks": total_weeks, "stages": []}
+
+    def test_today_is_week_one(self):
+        today = lp.datetime.now().strftime("%Y-%m-%d")
+        result = lp._infer_current_week(self._make_path(today))
+        self.assertEqual(result, 1)
+
+    def test_seven_days_later_is_week_two(self):
+        from datetime import timedelta
+        d = (lp.datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
+        result = lp._infer_current_week(self._make_path(d))
+        self.assertEqual(result, 2)
+
+    def test_does_not_exceed_total_weeks(self):
+        from datetime import timedelta
+        # 300天前，但总周数只有4，不能超过4
+        d = (lp.datetime.now() - timedelta(days=300)).strftime("%Y-%m-%d")
+        result = lp._infer_current_week(self._make_path(d, total_weeks=4))
+        self.assertEqual(result, 4)
+
+    def test_missing_generated_at_returns_none(self):
+        self.assertIsNone(lp._infer_current_week({"total_weeks": 10, "stages": []}))
+
+    def test_bad_date_returns_none(self):
+        self.assertIsNone(lp._infer_current_week(self._make_path("not-a-date")))
+
+
+class TestFindStepByWeek(unittest.TestCase):
+    """覆盖 _find_step_by_week 的定位逻辑。"""
+
+    def setUp(self):
+        self._path = lp.generate_path("备考雅思7分", "初级", 8, 20)
+
+    def test_week_1_returns_step_1(self):
+        idx, info = lp._find_step_by_week(self._path, 1)
+        self.assertEqual(idx, 1)
+        self.assertIsNotNone(info)
+
+    def test_beyond_total_weeks_returns_none(self):
+        idx, info = lp._find_step_by_week(self._path, 999)
+        self.assertIsNone(idx)
+
+    def test_returns_correct_stage_name(self):
+        # 第1周应该是入门阶段
+        _, info = lp._find_step_by_week(self._path, 1)
+        self.assertEqual(info["stage"], "入门")
+
+    def test_all_weeks_in_path_are_located(self):
+        total = self._path["total_weeks"]
+        for w in range(1, total + 1):
+            with self.subTest(week=w):
+                idx, info = lp._find_step_by_week(self._path, w)
+                self.assertIsNotNone(idx, f"第{w}周未能定位到任何步骤")
+
+
 class TestLocateCurrentStep(unittest.TestCase):
     """覆盖 _locate_current_step 的各类边界情况。"""
 
