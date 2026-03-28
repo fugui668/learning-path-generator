@@ -1,4 +1,4 @@
-# 🎯 个性化学习路径生成器 v3.5
+# 🎯 个性化学习路径生成器 v4.0
 
 根据个人学习目标、当前水平、可用时间，自动生成有序学习计划 + 资源推荐 + 进度检验方案。
 
@@ -6,34 +6,35 @@
 
 ```bash
 # 交互式生成路径（推荐）
-python3 learning_path.py
+python3 learning_path.py        # 兼容旧方式（shim）
+python3 -m learning_path        # 新方式（推荐）
 
 # 查看示例（5个领域）
-python3 learning_path.py --demo
+python3 -m learning_path --demo
 
 # 进度追踪 + 动态调整建议
-python3 learning_path.py --track
+python3 -m learning_path --track
 
 # 记录今日学习日志
-python3 learning_path.py --log
+python3 -m learning_path --log
 
 # 查看历史日志
-python3 learning_path.py --show-log
+python3 -m learning_path --show-log
 
 # 打印 ASCII 进度图表（带 ANSI 颜色）
-python3 learning_path.py --chart
+python3 -m learning_path --chart
 
 # 导出 PDF 报告
-python3 learning_path.py --export
+python3 -m learning_path --export
 
 # 查看所有可用领域
-python3 learning_path.py --list-domains
+python3 -m learning_path --list-domains
 
 # 新增自定义领域（交互式）
-python3 learning_path.py --add-domain
+python3 -m learning_path --add-domain
 
 # 查看版本号
-python3 learning_path.py --version
+python3 -m learning_path --version
 ```
 
 **无需安装任何依赖，仅需 Python 3.6+**（PDF 导出可选安装 `pip install reportlab`）
@@ -91,7 +92,7 @@ python3 learning_path.py --version
 
 ## 5 个示例路径
 
-运行 `python3 learning_path.py --demo` 查看：
+运行 `python3 -m learning_path --demo` 查看：
 
 | # | 目标 | 水平 | 每周时间 | 周期 |
 |---|------|------|---------|------|
@@ -206,24 +207,33 @@ python3 learning_path.py --version
 
 ```
 learning-path-generator/
-├── learning_path.py          # 主程序（全部逻辑）
-├── domains.json              # 领域注册表（可直接编辑，或用 --add-domain）
-├── test_learning_path.py     # 单元测试（55个）+ 压测（500组）
-├── README.md                 # 本文件
-├── my_path.json              # 生成后保存的路径（gitignore）
-├── learning_log.json         # 学习日志（gitignore）
-└── learning_path_report.pdf  # 导出的 PDF（gitignore）
+├── learning_path.py              # 向后兼容 shim（调用包入口）
+├── learning_path/                # 主包（v4.0 模块化）
+│   ├── __init__.py               # 导出公共 API
+│   ├── __main__.py               # python -m learning_path 入口
+│   ├── _version.py               # 版本号
+│   ├── domains.py                # 领域注册表加载
+│   ├── core.py                   # 核心路径生成逻辑
+│   ├── log.py                    # 日志读写
+│   ├── render.py                 # 输出渲染（CLI/PDF）
+│   ├── cli.py                    # 命令行交互入口
+│   └── domains.json              # 领域配置数据
+├── test_learning_path.py         # 单元测试（91个）
+├── README.md                     # 本文件
+├── my_path.json                  # 生成后保存的路径（gitignore）
+├── learning_log.json             # 学习日志（gitignore）
+└── learning_path_report.pdf      # 导出的 PDF（gitignore）
 ```
 
 ### 新增自定义领域
 
 **方式一：交互式添加（推荐）**
 ```bash
-python3 learning_path.py --add-domain
+python3 -m learning_path --add-domain
 ```
 按提示输入领域名、关键词、三阶段步骤即可，自动写入 `domains.json`。
 
-**方式二：直接编辑 domains.json**
+**方式二：直接编辑 learning_path/domains.json**
 在 `domain_registry` 对象下新增一个键，格式参照现有领域结构：
 ```json
 "日语": {
@@ -243,4 +253,14 @@ python3 learning_path.py --add-domain
 python3 -m unittest test_learning_path -v
 ```
 
-覆盖：输入解析 / 领域检测（含否定词）/ 路径生成边界 / 步骤连续性 / 进度定位 / 当前周推算 / 步骤自动匹配 / 日志读写 / 500组随机压测
+覆盖（91 个测试）：
+- 输入解析（parse_float / parse_int）
+- 领域检测（含否定词过滤 / priority 决胜）
+- 路径生成边界（极短 / 极长 / 各等级）
+- 步骤连续性 / hours_total 正确性
+- 进度定位 / 当前周推算 / 步骤匹配
+- 日志读写 / 空文件 / 损坏文件
+- **边界输入**（total_weeks=1/100，hours=1/100，空目标，等级两端）
+- **异常输入**（parse_int("")、detect_domain(None)、不存在路径）
+- **CLI mock 测试**（track_mode / add_log_entry / interactive_mode 完整流程）
+- 100 组随机参数压测
