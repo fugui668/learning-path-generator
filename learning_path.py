@@ -288,10 +288,10 @@ def print_path(path: dict) -> None:
             print(f"\n  Step {step_global}：{step['name']}")
             print(f"  📅 {step['week_range']}  |  共 {step['hours_total']}h")
             print(f"  🏆 里程碑：{step['milestone']}")
-            print(f"\n  📦 推荐资源类型：")
+            print("\n  📦 推荐资源类型：")
             for r in step["resources"]:
                 print(f"     {r}")
-            print(f"\n  ✅ 掌握度检验：")
+            print("\n  ✅ 掌握度检验：")
             for c in step["checkpoints"]:
                 print(f"     • {c}")
     print("\n" + "─" * 60)
@@ -308,8 +308,15 @@ def print_path(path: dict) -> None:
 
 def load_log() -> list:
     if os.path.exists(LOG_FILE):
-        with open(LOG_FILE, encoding="utf-8") as f:
-            return json.load(f)
+        try:
+            with open(LOG_FILE, encoding="utf-8") as f:
+                content = f.read().strip()
+            if not content:
+                return []
+            return json.loads(content)
+        except (json.JSONDecodeError, OSError):
+            # 文件损坏或为空 → 返回空列表，不崩溃
+            return []
     return []
 
 
@@ -547,7 +554,6 @@ def export_pdf() -> None:
 
         # 注册中文字体；找不到时尝试 pypinyin 转拼音兜底
         cn_font   = "Helvetica"
-        _cn2py    = None    # 拼音转换函数，None 表示直接用原文
         font_path = _find_cn_font()
         if font_path:
             try:
@@ -556,15 +562,19 @@ def export_pdf() -> None:
             except Exception:
                 pass   # 字体加载失败则尝试拼音兜底
 
+        # 拼音转换函数，None 表示直接用原文
+        _cn2py = None
         if cn_font == "Helvetica":
             # 没有中文字体 → 尝试 pypinyin 将中文转为带声调拼音
             try:
                 from pypinyin import lazy_pinyin, Style
-                def _cn2py(text: str) -> str:
-                    return " ".join(lazy_pinyin(text, style=Style.TONE))
+                def _make_cn2py() -> object:
+                    def _fn(text: str) -> str:
+                        return " ".join(lazy_pinyin(text, style=Style.TONE))
+                    return _fn
+                _cn2py = _make_cn2py()
             except ImportError:
-                # pypinyin 也没有 → 保留原文（中文字符显示为方框，但不崩溃）
-                _cn2py = None
+                pass  # pypinyin 也没有 → 保留原文（中文字符显示为方框，但不崩溃）
 
         def _safe(text: str) -> str:
             """若需要转拼音则转，否则直接返回原文。"""
@@ -642,7 +652,7 @@ def export_pdf() -> None:
                     f.write(f"  {step['week_range']}  共{step['hours_total']}h\n")
                     f.write(f"  里程碑：{step['milestone']}\n")
         print(f"\n⚠️  未安装 reportlab，已降级导出 TXT：{txt_path}")
-        print(f"   安装 PDF 支持：pip install reportlab\n")
+        print("   安装 PDF 支持：pip install reportlab\n")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -716,7 +726,7 @@ def track_mode() -> None:
     inferred = _infer_current_week(path)
     if inferred:
         print(f"\n🗓  根据生成日期自动推算：当前约第 {inferred} 周")
-        ans = input(f"   是否使用此推算值？(y/n，默认 y)\n> ").strip().lower()
+        ans = input("   是否使用此推算值？(y/n，默认 y)\n> ").strip().lower()
         if ans == "n":
             current_week = parse_int(input("📅 请手动输入当前第几周：\n> "), 1)
         else:
@@ -819,8 +829,8 @@ def list_domains() -> None:
         steps    = sum(len(s) for s in info["stages"].values())
         print(f"  {name:8s}  priority={info['priority']}  关键词 {kw_count:2d} 个  步骤模板 {steps} 条")
     print("─" * 52)
-    print(f"  💡 新增领域：python3 learning_path.py --add-domain")
-    print(f"  💡 手动编辑：直接修改 domains.json\n")
+    print("  💡 新增领域：python3 learning_path.py --add-domain")
+    print("  💡 手动编辑：直接修改 domains.json\n")
 
 
 if __name__ == "__main__":

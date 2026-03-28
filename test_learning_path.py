@@ -387,6 +387,35 @@ class TestLogIO(unittest.TestCase):
         self.assertTrue(loaded[0]["milestone_done"])
         self.assertEqual(loaded[1]["stage"], "进阶")
 
+    def test_load_empty_file_returns_empty_list(self):
+        """load_log 对 0 字节文件不应崩溃，应返回空列表。"""
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix='.json', delete=False) as tf:
+            tmp = tf.name
+        orig = lp.LOG_FILE
+        lp.LOG_FILE = tmp
+        try:
+            result = lp.load_log()
+            self.assertEqual(result, [])
+        finally:
+            lp.LOG_FILE = orig
+            os.unlink(tmp)
+
+    def test_load_corrupted_file_returns_empty_list(self):
+        """load_log 对 JSON 损坏文件不应崩溃，应返回空列表。"""
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix='.json', delete=False, mode='w') as tf:
+            tf.write("not valid json {{{{")
+            tmp = tf.name
+        orig = lp.LOG_FILE
+        lp.LOG_FILE = tmp
+        try:
+            result = lp.load_log()
+            self.assertEqual(result, [])
+        finally:
+            lp.LOG_FILE = orig
+            os.unlink(tmp)
+
     def test_append_preserves_existing(self):
         initial = [{"date": "2026-03-27", "hours": 1.0, "stage": "入门",
                     "step": "语法", "milestone_done": False, "note": ""}]
