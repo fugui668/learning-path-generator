@@ -27,256 +27,30 @@ LOG_DISPLAY_LIMIT = 20  # --show-log 展示条数
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 领域注册表
+# 领域注册表 — 从 domains.json 加载
 # 结构：每个领域 = { "priority": int, "keywords": [...], "stages": { 入门/进阶/高级: [...] } }
 # priority：关键词命中数相同时，priority 高的领域优先（数字越大越优先）。
-# 新增领域只需在此添加一个 entry，其他代码无需改动。
+# 新增领域：直接编辑 domains.json，或使用 --add-domain 命令，无需修改代码。
 # ─────────────────────────────────────────────────────────────────────────────
 
-DOMAIN_REGISTRY: dict = {
-    "编程": {
-        "priority": 5,
-        "keywords": ["编程", "python", "java", "javascript", "c++", "代码", "开发",
-                     "前端", "后端", "算法", "programming", "coding", "软件",
-                     "backend", "frontend", "web dev", "software", "typescript", "golang", "rust", "kotlin"],
-        "stages": {
-            "入门": [
-                {"name": "环境搭建与基础语法",   "weeks": 1, "milestone": "能写出 Hello World 并理解变量/循环/函数"},
-                {"name": "数据结构基础",         "weeks": 2, "milestone": "掌握列表、字典、集合的使用"},
-                {"name": "面向对象编程",         "weeks": 2, "milestone": "能独立设计简单类并实现继承"},
-            ],
-            "进阶": [
-                {"name": "算法与数据结构",       "weeks": 3, "milestone": "能解决 LeetCode Easy 级别题目"},
-                {"name": "框架与工程实践",       "weeks": 3, "milestone": "独立完成一个 CRUD Web 应用"},
-                {"name": "综合项目实战",         "weeks": 2, "milestone": "上线一个完整项目并写 README"},
-            ],
-            "高级": [
-                {"name": "系统设计基础",         "weeks": 3, "milestone": "能设计 10万 QPS 的简单系统"},
-                {"name": "性能优化与源码阅读",   "weeks": 3, "milestone": "提交一个开源项目 PR"},
-                {"name": "专项深耕（选方向）",   "weeks": 4, "milestone": "在选定方向产出技术博客或开源项目"},
-            ],
-        },
-    },
-    "数据分析": {
-        "priority": 8,
-        "keywords": ["数据分析", "数据科学", "机器学习", "深度学习", "统计",
-                     "data science", "data analysis", "kaggle", "pandas", "sklearn",
-                     "python数据", "python分析", "用python做", "做数据",
-                     "machine learning", "deep learning", "neural network", "tensorflow", "pytorch", "numpy", "matplotlib"],
-        "stages": {
-            "入门": [
-                {"name": "数据思维与 Excel 基础",  "weeks": 1, "milestone": "能用 Excel 完成数据透视表分析"},
-                {"name": "Python 数据分析基础",    "weeks": 2, "milestone": "用 Pandas 完成一份数据清洗报告"},
-                {"name": "数据可视化入门",         "weeks": 1, "milestone": "用 Matplotlib/Seaborn 绘制 5 种常见图表"},
-            ],
-            "进阶": [
-                {"name": "统计学基础",             "weeks": 2, "milestone": "能做 A/B 测试并解读显著性"},
-                {"name": "机器学习入门",           "weeks": 3, "milestone": "用 sklearn 完成分类/回归项目"},
-                {"name": "业务分析实战",           "weeks": 2, "milestone": "完成一份完整的业务分析报告"},
-            ],
-            "高级": [
-                {"name": "深度学习基础",           "weeks": 4, "milestone": "用 PyTorch 训练一个图像分类模型"},
-                {"name": "大数据工具栈",           "weeks": 3, "milestone": "能独立搭建 Spark 数据处理流水线"},
-                {"name": "数据产品设计",           "weeks": 3, "milestone": "输出完整数据产品方案文档"},
-            ],
-        },
-    },
-    "英语": {
-        "priority": 7,
-        "keywords": ["英语", "english", "雅思", "托福", "ielts", "toefl", "英文口语", "英文写作",
-                     "english speaking", "english writing", "improve english", "learn english", "gre", "gmat"],
-        "stages": {
-            "入门": [
-                {"name": "音标与基础词汇（1000词）", "weeks": 2, "milestone": "能听懂慢速英语新闻标题"},
-                {"name": "基础语法与短句",           "weeks": 2, "milestone": "能写出语法正确的5句话自我介绍"},
-                {"name": "听力训练入门",             "weeks": 2, "milestone": "能听懂 VOA 慢速英语 60%"},
-            ],
-            "进阶": [
-                {"name": "词汇扩展（3000词）与阅读", "weeks": 3, "milestone": "能独立阅读英文简版新闻"},
-                {"name": "口语与写作训练",           "weeks": 3, "milestone": "能进行 5 分钟日常英语对话"},
-                {"name": "听说综合强化",             "weeks": 2, "milestone": "能看懂 70% 的 TED 演讲"},
-            ],
-            "高级": [
-                {"name": "学术/商务英语",           "weeks": 3, "milestone": "能写一篇 500 词英文邮件/报告"},
-                {"name": "大量原版输入",             "weeks": 4, "milestone": "能无字幕看懂英美剧 80%"},
-                {"name": "专项备考（IELTS/TOEFL）", "weeks": 3, "milestone": "模拟测试达到目标分数"},
-            ],
-        },
-    },
-    "中文": {
-        "priority": 7,
-        "keywords": ["中文", "汉语", "普通话", "hsk", "chinese", "汉字",
-                     "mandarin", "learn chinese", "learn mandarin", "chinese characters"],
-        "stages": {
-            "入门": [
-                {"name": "汉字基础与拼音（300字）", "weeks": 2, "milestone": "能认读 300 个常用汉字，掌握拼音拼写"},
-                {"name": "基础词汇与简单对话",       "weeks": 2, "milestone": "能进行日常打招呼、购物等简单对话"},
-                {"name": "基础语法与书写",           "weeks": 2, "milestone": "能写出 3~5 句语法正确的中文句子"},
-            ],
-            "进阶": [
-                {"name": "词汇扩展（1500字）与阅读", "weeks": 3, "milestone": "能阅读简体中文新闻标题并理解大意"},
-                {"name": "口语表达与听力训练",       "weeks": 3, "milestone": "能进行 5 分钟日常中文对话"},
-                {"name": "写作与成语学习",           "weeks": 2, "milestone": "能写一篇 200 字的中文短文"},
-            ],
-            "高级": [
-                {"name": "文言文与古典文学入门",     "weeks": 3, "milestone": "能理解常见文言文短句并翻译"},
-                {"name": "书面语与正式写作",         "weeks": 3, "milestone": "能撰写正式中文邮件或报告"},
-                {"name": "HSK 备考（目标 HSK5/6）", "weeks": 4, "milestone": "模拟测试达到目标分数"},
-            ],
-        },
-    },
-    "西班牙语": {
-        "priority": 9,
-        "keywords": ["西班牙语", "español", "spanish", "dele", "西语",
-                     "learn spanish", "hablar español", "espanol"],
-        "stages": {
-            "入门": [
-                {"name": "发音规则与基础词汇（500词）",      "weeks": 2, "milestone": "掌握西班牙语发音规则，能朗读简单句子"},
-                {"name": "基础语法：名词性别、动词变位",     "weeks": 2, "milestone": "能用 ser/estar/tener 造句"},
-                {"name": "日常对话入门",                     "weeks": 2, "milestone": "能进行问候、自我介绍等基础对话"},
-            ],
-            "进阶": [
-                {"name": "词汇扩展（2000词）与阅读",         "weeks": 3, "milestone": "能阅读西语简版新闻并理解大意"},
-                {"name": "口语与写作训练",                   "weeks": 3, "milestone": "能进行 5 分钟日常西语对话"},
-                {"name": "听力强化与文化背景",               "weeks": 2, "milestone": "能听懂慢速西班牙语播客 70%"},
-            ],
-            "高级": [
-                {"name": "虚拟语气与高级语法",               "weeks": 3, "milestone": "能正确使用虚拟语气表达愿望/假设"},
-                {"name": "大量原版输入（剧集/书籍）",         "weeks": 4, "milestone": "能无字幕看懂西语剧 70%"},
-                {"name": "DELE 备考（目标 B2/C1）",          "weeks": 3, "milestone": "模拟测试达到目标分数"},
-            ],
-        },
-    },
-    "设计": {
-        "priority": 6,
-        "keywords": ["设计", "ui", "ux", "figma", "photoshop", "illustrator",
-                     "design", "排版", "视觉", "交互设计", "品牌设计",
-                     "graphic design", "ui design", "ux design", "sketch", "adobe xd", "motion design"],
-        "stages": {
-            "入门": [
-                {"name": "设计基础理论（色彩/排版/构图）", "weeks": 2, "milestone": "能分析一张海报的设计原则"},
-                {"name": "工具入门（Figma/PS）",           "weeks": 2, "milestone": "独立完成一张名片或 Banner 设计"},
-                {"name": "临摹与模仿练习",                 "weeks": 2, "milestone": "临摹 5 个优秀设计案例"},
-            ],
-            "进阶": [
-                {"name": "UI/UX 设计原则",                 "weeks": 3, "milestone": "完成一个 App 的 3 个核心页面设计"},
-                {"name": "设计系统与组件库",               "weeks": 2, "milestone": "搭建一套包含 20+ 组件的设计系统"},
-                {"name": "交互原型与用户测试",             "weeks": 3, "milestone": "完成可点击原型并收集用户反馈"},
-            ],
-            "高级": [
-                {"name": "品牌设计与视觉系统",             "weeks": 3, "milestone": "为一个虚拟品牌输出完整 VI 手册"},
-                {"name": "动效设计与创意实验",             "weeks": 3, "milestone": "完成 3 个动效演示并发布 Dribbble"},
-                {"name": "设计评审与作品集",               "weeks": 4, "milestone": "输出完整个人作品集网站"},
-            ],
-        },
-    },
-    "产品": {
-        "priority": 6,
-        "keywords": ["产品经理", "产品设计", "product", "prd", "需求文档",
-                     "原型", "用户研究", "增长", "产品规划",
-                     "product manager", "product design", "roadmap", "user story", "agile", "scrum"],
-        "stages": {
-            "入门": [
-                {"name": "产品思维与方法论",               "weeks": 2, "milestone": "能用 AARRR 分析一款产品"},
-                {"name": "需求分析与用户研究",             "weeks": 2, "milestone": "完成一份 5 人用户访谈报告"},
-                {"name": "原型设计基础",                   "weeks": 2, "milestone": "用 Figma 完成一个功能的低保真原型"},
-            ],
-            "进阶": [
-                {"name": "数据分析与 A/B 测试",           "weeks": 3, "milestone": "设计并分析一个完整的 A/B 实验"},
-                {"name": "产品规划与路线图",               "weeks": 2, "milestone": "输出一份完整的季度产品路线图"},
-                {"name": "跨职能协作与 PRD 写作",         "weeks": 3, "milestone": "完成一份完整的 PRD 文档并通过评审"},
-            ],
-            "高级": [
-                {"name": "增长策略与商业模式",             "weeks": 3, "milestone": "完成一份产品商业模式分析报告"},
-                {"name": "0→1 产品规划",                  "weeks": 4, "milestone": "输出一份完整的新产品立项方案"},
-                {"name": "产品领导力与团队管理",           "weeks": 3, "milestone": "主导一次完整的产品发布"},
-            ],
-        },
-    },
-    "写作": {
-        "priority": 5,
-        "keywords": ["写作", "writing", "文章", "创作", "小说", "博客", "内容创作",
-                     "文案", "剧本", "非虚构",
-                     "copywriting", "content writing", "creative writing", "storytelling", "essay", "fiction"],
-        "stages": {
-            "入门": [
-                {"name": "写作基础：结构与逻辑",           "weeks": 2, "milestone": "能写出结构清晰的 500 字文章"},
-                {"name": "描写与叙述技巧",                 "weeks": 2, "milestone": "完成一篇有细节描写的 800 字短文"},
-                {"name": "阅读积累与素材库建立",           "weeks": 2, "milestone": "建立包含 50 条素材的写作素材库"},
-            ],
-            "进阶": [
-                {"name": "非虚构写作（评论/报道）",       "weeks": 3, "milestone": "完成一篇 1500 字深度评论文章"},
-                {"name": "写作风格塑造",                   "weeks": 2, "milestone": "形成可辨识的个人写作风格"},
-                {"name": "连续创作与反馈迭代",             "weeks": 3, "milestone": "连续发布 10 篇文章并收到有效反馈"},
-            ],
-            "高级": [
-                {"name": "长篇写作策划与结构",             "weeks": 3, "milestone": "完成一本书或专栏的大纲与首章"},
-                {"name": "写作变现与读者运营",             "weeks": 3, "milestone": "获得第一笔写作收入或 1000 名订阅者"},
-                {"name": "出版与品牌建设",                 "weeks": 4, "milestone": "完成一部完整作品并提交出版社/平台"},
-            ],
-        },
-    },
-    "通用": {
-        "priority": 1,
-        "keywords": [],   # 兜底，关键词为空，匹配不到其他领域时使用
-        "stages": {
-            "入门": [
-                {"name": "基础概念学习", "weeks": 2, "milestone": "能用自己的话解释核心概念"},
-                {"name": "基础技能练习", "weeks": 2, "milestone": "完成 5 个基础练习题/任务"},
-                {"name": "小项目实践",   "weeks": 2, "milestone": "独立完成一个入门级作品"},
-            ],
-            "进阶": [
-                {"name": "系统性深入学习", "weeks": 3, "milestone": "能解决中等难度问题"},
-                {"name": "实战项目",       "weeks": 3, "milestone": "完成一个中等复杂度项目"},
-                {"name": "查漏补缺",       "weeks": 2, "milestone": "通过综合测验"},
-            ],
-            "高级": [
-                {"name": "高级技巧与最佳实践", "weeks": 3, "milestone": "能指导初学者"},
-                {"name": "综合实战",           "weeks": 3, "milestone": "完成高质量综合项目"},
-                {"name": "持续精进",           "weeks": 4, "milestone": "在社区分享成果"},
-            ],
-        },
-    },
-}
+DOMAINS_FILE = os.path.join(BASE_DIR, "domains.json")
 
-RESOURCE_MAP = {
-    "入门": [
-        "📚 入门书籍（选 1 本经典教材，系统打基础）",
-        "🎬 视频课程（B站/YouTube 免费课，适合碎片化学习）",
-        "✏️  跟练习题（每学完一节立刻做题，巩固记忆）",
-        "🤝 学习社群（加入同阶段群，互相打卡问答）",
-    ],
-    "进阶": [
-        "📖 进阶书籍/文档（官方文档 + 1本深度书）",
-        "🛠️  动手项目（边做边学，比看教程效果强 3 倍）",
-        "🎯 专项练习平台（LeetCode/Kaggle/语言学习App）",
-        "📝 技术博客（输出倒逼输入，写笔记加深理解）",
-    ],
-    "高级": [
-        "🔬 论文/源码（读经典论文或优秀开源项目源码）",
-        "🏆 竞赛/开源贡献（Kaggle 竞赛、GitHub PR）",
-        "💬 技术分享（输出演讲/文章，建立个人影响力）",
-        "👥 导师/同行交流（找领域大牛 1on1 或加入专业圈子）",
-    ],
-}
+def _load_domains() -> tuple[dict, dict, dict]:
+    """从 domains.json 加载领域注册表、资源推荐表、掌握度检验表。"""
+    if not os.path.exists(DOMAINS_FILE):
+        print(f"❌ 找不到领域配置文件：{DOMAINS_FILE}")
+        print("   请确保 domains.json 与 learning_path.py 在同一目录下。")
+        sys.exit(1)
+    try:
+        with open(DOMAINS_FILE, encoding="utf-8") as _f:
+            _data = json.load(_f)
+        return _data["domain_registry"], _data["resource_map"], _data["checkpoints"]
+    except (json.JSONDecodeError, KeyError) as _e:
+        print(f"❌ domains.json 格式错误：{_e}")
+        print("   请检查 JSON 格式，或删除文件后重新生成。")
+        sys.exit(1)
 
-CHECKPOINTS = {
-    "入门": [
-        "概念自测：不看资料能否用自己的话解释本阶段核心概念？",
-        "实操验证：完成配套练习题，正确率 ≥ 70%？",
-        "小作品：完成阶段里程碑任务并能展示给他人？",
-    ],
-    "进阶": [
-        "独立解题：遇到新问题是否能独立拆解并找到解法？",
-        "项目复盘：项目中遇到最大的坑是什么？如何解决的？",
-        "教学测试：能否向零基础朋友清晰讲解本阶段知识？",
-    ],
-    "高级": [
-        "边界认知：清楚知道自己还不懂什么，有具体学习计划？",
-        "社区贡献：输出了可被他人使用/参考的成果？",
-        "实战验证：成果经过真实场景或他人检验？",
-    ],
-}
+DOMAIN_REGISTRY, RESOURCE_MAP, CHECKPOINTS = _load_domains()
 
 LEVEL_TO_STAGE = {"零基础": "入门", "初级": "入门", "中级": "进阶", "高级": "高级"}
 STAGE_ORDER    = ["入门", "进阶", "高级"]
@@ -911,12 +685,82 @@ def demo_mode() -> None:
 # 入口
 # ─────────────────────────────────────────────────────────────────────────────
 
+def add_domain() -> None:
+    """交互式向 domains.json 新增一个自定义领域。"""
+    print("\n➕ 新增自定义领域")
+    print("─" * 40)
+    name = input("领域名称（如：日语、摄影）：").strip()
+    if not name:
+        print("❌ 名称不能为空。")
+        return
+    if name in DOMAIN_REGISTRY:
+        print(f"⚠️  领域「{name}」已存在，如需修改请直接编辑 domains.json。")
+        return
+
+    kw_raw   = input("关键词（逗号分隔，如：日语,japanese,jlpt,n1）：").strip()
+    keywords = [k.strip().lower() for k in kw_raw.split(",") if k.strip()]
+    priority = 6   # 默认优先级（中等）
+
+    print("\n请依次输入入门 / 进阶 / 高级三个阶段的步骤（每步格式：步骤名|参考周数|里程碑）")
+    print("每阶段至少 2 步，输入空行结束该阶段。")
+
+    stages: dict = {}
+    for stage in ["入门", "进阶", "高级"]:
+        steps = []
+        print(f"\n  [{stage}阶段]（至少 2 步）")
+        while True:
+            raw = input(f"    步骤 {len(steps)+1}（名称|周数|里程碑）或空行结束：").strip()
+            if not raw:
+                if len(steps) < 2:
+                    print("    ⚠️  至少需要 2 步，请继续输入。")
+                    continue
+                break
+            parts = [p.strip() for p in raw.split("|")]
+            if len(parts) < 3:
+                print("    格式错误，请用 | 分隔名称、周数、里程碑。")
+                continue
+            try:
+                w = max(1, int(parts[1]))
+            except ValueError:
+                print("    周数必须是整数，已自动设为 2。")
+                w = 2
+            steps.append({"name": parts[0], "weeks": w, "milestone": parts[2]})
+        stages[stage] = steps
+
+    new_entry = {"priority": priority, "keywords": keywords, "stages": stages}
+
+    # 写回 domains.json
+    with open(DOMAINS_FILE, encoding="utf-8") as f:
+        data = json.load(f)
+    data["domain_registry"][name] = new_entry
+    with open(DOMAINS_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+    print(f"\n✅ 已添加领域「{name}」到 domains.json，共 {len(data['domain_registry'])} 个领域。")
+    print("   下次运行时即可自动识别该领域。")
+
+
+def list_domains() -> None:
+    """列出所有可用领域及关键词数量。"""
+    print(f"\n📚 当前领域列表（共 {len(DOMAIN_REGISTRY)} 个，来源：domains.json）")
+    print("─" * 52)
+    for name, info in DOMAIN_REGISTRY.items():
+        kw_count = len(info["keywords"])
+        steps    = sum(len(s) for s in info["stages"].values())
+        print(f"  {name:8s}  priority={info['priority']}  关键词 {kw_count:2d} 个  步骤模板 {steps} 条")
+    print("─" * 52)
+    print(f"  💡 新增领域：python3 learning_path.py --add-domain")
+    print(f"  💡 手动编辑：直接修改 domains.json\n")
+
+
 if __name__ == "__main__":
     args = sys.argv[1:]
-    if   "--demo"     in args: demo_mode()
-    elif "--track"    in args: track_mode()
-    elif "--log"      in args: add_log_entry()
-    elif "--show-log" in args: show_log()
-    elif "--chart"    in args: show_chart()
-    elif "--export"   in args: export_pdf()
+    if   "--demo"         in args: demo_mode()
+    elif "--track"        in args: track_mode()
+    elif "--log"          in args: add_log_entry()
+    elif "--show-log"     in args: show_log()
+    elif "--chart"        in args: show_chart()
+    elif "--export"       in args: export_pdf()
+    elif "--add-domain"   in args: add_domain()
+    elif "--list-domains" in args: list_domains()
     else: interactive_mode()

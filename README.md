@@ -1,4 +1,4 @@
-# 🎯 个性化学习路径生成器 v3.3
+# 🎯 个性化学习路径生成器 v3.4
 
 根据个人学习目标、当前水平、可用时间，自动生成有序学习计划 + 资源推荐 + 进度检验方案。
 
@@ -20,11 +20,17 @@ python3 learning_path.py --log
 # 查看历史日志
 python3 learning_path.py --show-log
 
-# 打印 ASCII 进度图表
+# 打印 ASCII 进度图表（带 ANSI 颜色）
 python3 learning_path.py --chart
 
 # 导出 PDF 报告
 python3 learning_path.py --export
+
+# 查看所有可用领域
+python3 learning_path.py --list-domains
+
+# 新增自定义领域（交互式）
+python3 learning_path.py --add-domain
 ```
 
 **无需安装任何依赖，仅需 Python 3.6+**（PDF 导出可选安装 `pip install reportlab`）
@@ -181,7 +187,7 @@ python3 learning_path.py --export
 |--------|------|------|
 | 实现方式 | CLI（非 Web/App） | 零依赖，快速可运行，专注核心逻辑 |
 | 资源推荐 | 类型推荐（非真实链接） | 避免链接失效，普适性强 |
-| 领域覆盖 | 9 大领域 | 覆盖主流学习场景，通用兜底兼容其他 |
+| 领域覆盖 | 9 大领域 + 自定义扩展 | domains.json 可随时新增，无需改代码 |
 | 路径算法 | 规则引擎（非 AI API） | 本地运行，输出稳定可预期，无网络依赖 |
 | 领域识别 | 关键词计数 + 否定词过滤 + priority 决胜 | 准确率高，边界处理完善 |
 | 周数不足时 | 智能收缩阶段数 | 避免每阶段时间极短、学习深度不足 |
@@ -198,11 +204,34 @@ python3 learning_path.py --export
 ```
 learning-path-generator/
 ├── learning_path.py          # 主程序（全部逻辑）
-├── test_learning_path.py     # 单元测试（49个）+ 压测（500组）
+├── domains.json              # 领域注册表（可直接编辑，或用 --add-domain）
+├── test_learning_path.py     # 单元测试（55个）+ 压测（500组）
 ├── README.md                 # 本文件
 ├── my_path.json              # 生成后保存的路径（gitignore）
 ├── learning_log.json         # 学习日志（gitignore）
 └── learning_path_report.pdf  # 导出的 PDF（gitignore）
+```
+
+### 新增自定义领域
+
+**方式一：交互式添加（推荐）**
+```bash
+python3 learning_path.py --add-domain
+```
+按提示输入领域名、关键词、三阶段步骤即可，自动写入 `domains.json`。
+
+**方式二：直接编辑 domains.json**
+在 `domain_registry` 对象下新增一个键，格式参照现有领域结构：
+```json
+"日语": {
+  "priority": 7,
+  "keywords": ["日语", "japanese", "jlpt", "n1", "n2"],
+  "stages": {
+    "入门": [{"name": "五十音图", "weeks": 2, "milestone": "默写全部假名"}],
+    "进阶": [{"name": "N4/N3 词汇语法", "weeks": 4, "milestone": "通过 N3 模拟题"}],
+    "高级": [{"name": "N2/N1 冲刺", "weeks": 4, "milestone": "N1 模拟 120 分以上"}]
+  }
+}
 ```
 
 ## 测试
