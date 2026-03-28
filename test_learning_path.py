@@ -151,10 +151,11 @@ class TestGeneratePath(unittest.TestCase):
         self.assertEqual(len(path["stages"]), 1)
         self.assertEqual(path["stages"][0]["stage"], "入门")
 
-    def test_short_weeks_two_stages(self):
-        """6 周（= 2 * MIN_STAGE_WEEKS）通常只展开两个阶段。"""
-        path = lp.generate_path("学 Python", "零基础", 10, 6)
-        self.assertLessEqual(len(path["stages"]), 2)
+    def test_short_weeks_stages_feasible(self):
+        """6 周时展开的阶段数应 ≥1，且总周数严格等于 6。"""
+        path = lp.generate_path("学 Python 编程", "零基础", 10, 6)
+        self.assertGreaterEqual(len(path["stages"]), 1)
+        self.assertEqual(sum(s["weeks"] for s in path["stages"]), 6)
 
     def test_long_weeks_all_stages(self):
         """充足周数（24 周）应展开全三阶段。"""

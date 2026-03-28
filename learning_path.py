@@ -321,70 +321,97 @@ def detect_domain(goal: str) -> str:
 # 路径生成：拆分为独立子函数
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _select_active_stages(start_stage: str, total_weeks: int, tmpl_weeks: dict) -> list[str]:
+def _select_and_allocate(start_stage: str, total_weeks: int,
+                          tmpl_weeks: dict) -> dict[str, int]:
     """
-    决定实际展开哪些阶段。
-    从起始阶段开始，按权重估算每阶段用时；预算不足 MIN_STAGE_WEEKS 时停止。
-    """
-    all_active   = STAGE_ORDER[STAGE_ORDER.index(start_stage):]
-    total_tmpl_w = sum(tmpl_weeks[s] for s in all_active)
-    active, budget = [], total_weeks
+    一次性决定展开哪些阶段、各分配多少周，保证分配总和严格等于 total_weeks。
 
-    for s in all_active:
-        est = max(MIN_STAGE_WEEKS, round(total_weeks * tmpl_weeks[s] / total_tmpl_w))
-        if budget >= MIN_STAGE_WEEKS:
+    算法：
+      1. 从 start_stage 开始，贪心地加入阶段，直到剩余预算不足 MIN_STAGE_WEEKS。
+         至少保留 1 个阶段。
+      2. 按模板比例分配周数，尾阶段吸收舍入误差，前段每阶段至少 1 周。
+    """
+    all_candidates = STAGE_ORDER[STAGE_ORDER.index(start_stage):]
+    total_tmpl_all = sum(tmpl_weeks[s] for s in all_candidates)
+
+    # 步骤1：决定展开哪些阶段
+    active: list[str] = []
+    budget = total_weeks
+    for s in all_candidates:
+        est = max(1, round(total_weeks * tmpl_weeks[s] / total_tmpl_all))
+        if budget >= MIN_STAGE_WEEKS or not active:   # 至少保留第一个
             active.append(s)
             budget -= est
-        else:
-            break
+            if budget < MIN_STAGE_WEEKS:
+                break
+    if not active:
+        active = [all_candidates[0]]
 
-    return active if active else [all_active[0]]
+    # 步骤2：按比例精确分配，总和严格等于 total_weeks
+    total_tmpl = sum(tmpl_weeks[s] for s in active)
+    alloc: dict[str, int] = {}
+    leftover = total_weeks
 
+    for s in active[:-1]:
+        remaining_after = len(active) - len(alloc) - 1   # 后续还剩几个阶段
+        w = max(1, round(total_weeks * tmpl_weeks[s] / total_tmpl))
+        w = min(w, leftover - remaining_after)            # 给后续留足 1 周/阶段
+        alloc[s] = max(1, w)
+        leftover -= alloc[s]
 
-def _allocate_weeks(active_stages: list[str], total_weeks: int, tmpl_weeks: dict) -> dict[str, int]:
-    """按模板权重把 total_weeks 分配给各阶段，尾阶段吸收舍入误差。"""
-    total_tmpl = sum(tmpl_weeks[s] for s in active_stages)
-    alloc, leftover = {}, total_weeks
-
-    for s in active_stages[:-1]:
-        w = max(MIN_STAGE_WEEKS, round(total_weeks * tmpl_weeks[s] / total_tmpl))
-        alloc[s] = w
-        leftover -= w
-
-    alloc[active_stages[-1]] = max(MIN_STAGE_WEEKS, leftover)
+    alloc[active[-1]] = max(1, leftover)   # 尾阶段吸收误差
     return alloc
 
 
 def _build_steps(stage_name: str, alloc_weeks: int, hours_per_week: int,
                  template_steps: list, week_cursor: int) -> tuple[list, int]:
     """
-    将模板步骤压缩/扩展到 alloc_weeks 内。
-    返回 (steps_list, stage_weeks_used)。
+    将模板步骤精确压缩/扩展到 alloc_weeks 内，步骤总周数严格等于 alloc_weeks。
+
+    当 alloc_weeks < 步骤数时，将步骤合并到 alloc_weeks 个桶中，每桶至少 1 周。
+    返回 (steps_list, alloc_weeks)。
     """
     total_tmpl_w = sum(s["weeks"] for s in template_steps)
-    scale = max(0.5, min(alloc_weeks / total_tmpl_w, 2.0))
 
-    steps, stage_used = [], 0
-    for i, tmpl in enumerate(template_steps):
-        adj = max(1, round(tmpl["weeks"] * scale))
-        if i == len(template_steps) - 1:           # 最后步骤吸收误差
-            adj = max(1, alloc_weeks - stage_used)
+    # 若步骤数超过可用周数，合并多余步骤（末尾步骤合并）
+    effective = list(template_steps)
+    while len(effective) > alloc_weeks:
+        last = effective.pop()
+        effective[-1] = {
+            "name":      effective[-1]["name"] + " & " + last["name"],
+            "weeks":     effective[-1]["weeks"] + last["weeks"],
+            "milestone": last["milestone"],   # 用最终里程碑
+        }
 
-        s_week = week_cursor + stage_used + 1
-        e_week = s_week + adj - 1
+    n = len(effective)
+    leftover = alloc_weeks
+    steps = []
+
+    for i, tmpl in enumerate(effective):
+        remaining_steps = n - i - 1
+        if i < n - 1:
+            w = max(1, round(alloc_weeks * tmpl["weeks"] / total_tmpl_w))
+            w = min(w, leftover - remaining_steps)   # 给后续每步留 ≥1 周
+            w = max(1, w)
+        else:
+            w = max(1, leftover)                     # 尾步骤吸收误差
+
+        used_so_far = alloc_weeks - leftover
+        s_week = week_cursor + used_so_far + 1
+        e_week = s_week + w - 1
         steps.append({
             "step":        len(steps) + 1,
             "name":        tmpl["name"],
-            "weeks":       adj,
+            "weeks":       w,
             "week_range":  f"第 {s_week}~{e_week} 周",
-            "hours_total": adj * hours_per_week,
+            "hours_total": w * hours_per_week,
             "milestone":   tmpl["milestone"],
             "resources":   RESOURCE_MAP[stage_name],
             "checkpoints": CHECKPOINTS[stage_name],
         })
-        stage_used += adj
+        leftover -= w
 
-    return steps, stage_used
+    return steps, alloc_weeks
 
 
 def generate_path(goal: str, level: str, hours_per_week: int, total_weeks: int) -> dict:
@@ -393,9 +420,9 @@ def generate_path(goal: str, level: str, hours_per_week: int, total_weeks: int) 
     stages_tmpl = DOMAIN_REGISTRY[domain]["stages"]
     start_stage = LEVEL_TO_STAGE.get(level, "入门")
 
-    tmpl_weeks     = {s: sum(st["weeks"] for st in stages_tmpl[s]) for s in STAGE_ORDER}
-    active_stages  = _select_active_stages(start_stage, total_weeks, tmpl_weeks)
-    stage_alloc    = _allocate_weeks(active_stages, total_weeks, tmpl_weeks)
+    tmpl_weeks  = {s: sum(st["weeks"] for st in stages_tmpl[s]) for s in STAGE_ORDER}
+    stage_alloc = _select_and_allocate(start_stage, total_weeks, tmpl_weeks)
+    active_stages = list(stage_alloc.keys())
 
     path_stages, week_cursor = [], 0
     for stage_name in active_stages:
