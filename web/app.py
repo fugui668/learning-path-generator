@@ -40,6 +40,18 @@ app = Flask(__name__,
 app.secret_key = "learning-path-secret-2024"
 
 
+# ── 错误处理 ───────────────────────────────────────────────────────────────
+
+@app.errorhandler(404)
+def not_found(e):
+    return render_template("error.html", code=404, message="页面不存在"), 404
+
+
+@app.errorhandler(500)
+def server_error(e):
+    return render_template("error.html", code=500, message=str(e)), 500
+
+
 # ── 辅助函数 ───────────────────────────────────────────────────────────────
 
 def _load_path():
@@ -214,31 +226,35 @@ def chart():
 @app.route("/export")
 def export():
     """导出 PDF / TXT。"""
-    # 调用 render.export_pdf()（它会直接写文件并打印）
-    import io
-    import contextlib
-    buf = io.StringIO()
-    with contextlib.redirect_stdout(buf):
-        _export_pdf()
+    try:
+        # 调用 render.export_pdf()（它会直接写文件并打印）
+        import io
+        import contextlib
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            _export_pdf()
 
-    # 查找生成的文件
-    project_dir = os.path.dirname(PATH_FILE)
-    pdf_path = os.path.join(project_dir, "learning_path_report.pdf")
-    txt_path = os.path.join(project_dir, "learning_path_report.txt")
+        # 查找生成的文件
+        project_dir = os.path.dirname(PATH_FILE)
+        pdf_path = os.path.join(project_dir, "learning_path_report.pdf")
+        txt_path = os.path.join(project_dir, "learning_path_report.txt")
 
-    if os.path.exists(pdf_path):
-        return send_file(pdf_path,
-                         as_attachment=True,
-                         download_name="learning_path_report.pdf",
-                         mimetype="application/pdf")
-    elif os.path.exists(txt_path):
-        return send_file(txt_path,
-                         as_attachment=True,
-                         download_name="learning_path_report.txt",
-                         mimetype="text/plain")
-    else:
-        flash("导出失败，请先生成学习路径。", "danger")
-        return redirect(url_for("path_detail"))
+        if os.path.exists(pdf_path):
+            return send_file(pdf_path,
+                             as_attachment=True,
+                             download_name="learning_path_report.pdf",
+                             mimetype="application/pdf")
+        elif os.path.exists(txt_path):
+            return send_file(txt_path,
+                             as_attachment=True,
+                             download_name="learning_path_report.txt",
+                             mimetype="text/plain")
+        else:
+            flash("导出失败，请先生成学习路径。", "danger")
+            return redirect(url_for("path_detail"))
+    except Exception as exc:  # noqa: BLE001
+        return render_template("error.html", code=500,
+                                message=f"导出失败：{exc}"), 500
 
 
 # ── 启动 ───────────────────────────────────────────────────────────────────

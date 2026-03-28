@@ -862,5 +862,102 @@ class TestResources(unittest.TestCase):
             self.fail(f"fetch_youtube_resources 不应抛出异常，但抛出了：{e}")
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Flask Web 应用测试
+# ─────────────────────────────────────────────────────────────────────────────
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "web"))
+
+
+class TestFlaskApp(unittest.TestCase):
+    """使用 Flask 内置 test client 测试 Web 路由。"""
+
+    _tmp_path_file = None
+    _tmp_log_file = None
+
+    def setUp(self):
+        import app as _app_mod  # noqa: PLC0415
+
+        # 创建临时数据文件，避免污染真实数据
+        self._tmp_path_fd, self._tmp_path_file = tempfile.mkstemp(suffix=".json")
+        self._tmp_log_fd, self._tmp_log_file = tempfile.mkstemp(suffix=".json")
+
+        # 用 generate_path 生成符合完整 schema 的路径
+        _sample_path = lp.core.generate_path("学习Python", "零基础", 10, 4)
+        with os.fdopen(self._tmp_path_fd, "w", encoding="utf-8") as f:
+            json.dump(_sample_path, f, ensure_ascii=False)
+        # 写入空日志
+        with os.fdopen(self._tmp_log_fd, "w", encoding="utf-8") as f:
+            json.dump([], f)
+
+        # Patch log 模块里的文件路径，防止读写真实文件
+        self._patch_path = patch("learning_path.log.PATH_FILE", self._tmp_path_file)
+        self._patch_log = patch("learning_path.log.LOG_FILE", self._tmp_log_file)
+        # 同时 patch app 模块中直接引用的 PATH_FILE
+        self._patch_app_path = patch("app.PATH_FILE", self._tmp_path_file)
+        self._patch_path.start()
+        self._patch_log.start()
+        self._patch_app_path.start()
+
+        _app_mod.app.config["TESTING"] = True
+        _app_mod.app.config["WTF_CSRF_ENABLED"] = False
+        self.client = _app_mod.app.test_client()
+
+    def tearDown(self):
+        self._patch_path.stop()
+        self._patch_log.stop()
+        self._patch_app_path.stop()
+        # 删除临时文件（忽略已删除的情况）
+        for path in (self._tmp_path_file, self._tmp_log_file):
+            try:
+                if path and os.path.exists(path):
+                    os.unlink(path)
+            except OSError:
+                pass
+
+    def test_index_returns_200(self):
+        """GET / 应返回 200。"""
+        resp = self.client.get("/")
+        self.assertEqual(resp.status_code, 200)
+
+    def test_generate_redirects(self):
+        """POST /generate 应重定向（302）到 /path。"""
+        resp = self.client.post("/generate", data={
+            "goal": "学习编程",
+            "level": "零基础",
+            "hours_per_week": "10",
+            "total_weeks": "4",
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn("/path", resp.headers.get("Location", ""))
+
+    def test_path_page_with_path(self):
+        """GET /path（有路径文件时）应返回 200。"""
+        resp = self.client.get("/path")
+        self.assertEqual(resp.status_code, 200)
+
+    def test_progress_page(self):
+        """GET /progress（有路径文件时）应返回 200。"""
+        resp = self.client.get("/progress")
+        self.assertEqual(resp.status_code, 200)
+
+    def test_chart_page(self):
+        """GET /chart 应返回 200。"""
+        resp = self.client.get("/chart")
+        self.assertEqual(resp.status_code, 200)
+
+    def test_404_returns_error_page(self):
+        """GET /nonexistent 应返回 404，且 body 含"页面不存在"。"""
+        resp = self.client.get("/nonexistent_route_xyz")
+        self.assertEqual(resp.status_code, 404)
+        self.assertIn("页面不存在", resp.data.decode("utf-8"))
+
+    def test_export_no_crash(self):
+        """GET /export 不应返回 500（允许 200 或 302/404）。"""
+        resp = self.client.get("/export")
+        self.assertNotEqual(resp.status_code, 500,
+                             "export 路由不应崩溃并返回 500")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
