@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-个性化学习路径生成器 v3.1
+个性化学习路径生成器 v3.3
 Personalized Learning Path Generator
 
 使用方法:
@@ -603,7 +603,7 @@ def show_log() -> None:
 # ─────────────────────────────────────────────────────────────────────────────
 
 def show_chart() -> None:
-    """打印 ASCII 进度图表。"""
+    """打印美化版 ASCII 进度图表（带 ANSI 颜色 + 分级色块）。"""
     if not os.path.exists(PATH_FILE):
         print("❌ 未找到学习路径，请先生成路径。")
         return
@@ -622,36 +622,70 @@ def show_chart() -> None:
     actual_h   = sum(e.get("hours", 0) for e in entries)
     pct        = min(100, int(actual_h / total_plan * 100)) if total_plan > 0 else 0
 
-    def bar(pct_val: int, width: int = 30) -> str:
-        filled = int(width * pct_val / 100)
-        return "█" * filled + "░" * (width - filled)
+    # ── ANSI 颜色（不支持时降级为空串）────────────────────────
+    _USE_COLOR = sys.stdout.isatty()
+    def _c(code: str, text: str) -> str:
+        return f"\033[{code}m{text}\033[0m" if _USE_COLOR else text
+    GREEN  = lambda t: _c("32", t)
+    YELLOW = lambda t: _c("33", t)
+    CYAN   = lambda t: _c("36", t)
+    BOLD   = lambda t: _c("1",  t)
+    DIM    = lambda t: _c("2",  t)
 
-    print(f"\n📊 学习进度概览")
-    print("═" * 52)
-    print(f"  目标：{path['goal']}")
-    print(f"  计划总时长：{total_plan}h  |  实际已学：{actual_h:.1f}h")
-    print(f"\n  总进度  [{bar(pct)}] {pct}%")
-    print(f"\n  阶段分布：")
+    # ── 进度条（按百分比选色块密度）──────────────────────────
+    def bar(pct_val: int, width: int = 30, color_fn=GREEN) -> str:
+        filled = int(width * pct_val / 100)
+        empty  = width - filled
+        # 分级色块：>80% 实心，50~80% 3/4块，<50% 1/2块
+        if pct_val >= 80:
+            block = "█"
+        elif pct_val >= 50:
+            block = "▓"
+        else:
+            block = "▒"
+        return color_fn(block * filled) + DIM("░" * empty)
+
+    # ── 柱状图单行（8级高度）─────────────────────────────────
+    def hbar(h: float, max_h: float, width: int = 24) -> str:
+        w = int(h / max_h * width) if max_h > 0 else 0
+        return CYAN("█" * w) + DIM("·" * (width - w))
+
+    W = 56
+    print()
+    print(BOLD("  📊 学习进度概览"))
+    print("  " + "═" * W)
+    print(f"  {BOLD('目标')}：{path['goal']}")
+    print(f"  {BOLD('领域')}：{path['domain']}  |  水平：{path['level']}")
+    print(f"  {BOLD('计划')}：{total_plan}h 总计  |  {BOLD('实际')}：{YELLOW(f'{actual_h:.1f}h')}")
+    print()
+    print(f"  {BOLD('总进度')}  [{bar(pct)}] {YELLOW(str(pct) + '%')}")
+    print()
+    print(f"  {BOLD('阶段进度：')}")
     for stage in path["stages"]:
         sn     = stage["stage"]
         plan_h = stage["weeks"] * path["hours_per_week"]
         act_h  = stage_hours.get(sn, 0)
         sp     = min(100, int(act_h / plan_h * 100)) if plan_h > 0 else 0
-        print(f"  {sn:6s}  [{bar(sp, 20)}] {sp:3d}%  ({act_h:.1f}/{plan_h}h)")
+        label  = f"{sn:3s}"
+        ratio  = f"({act_h:.1f}/{plan_h}h)"
+        print(f"  {label}  [{bar(sp, 20)}] {sp:3d}%  {DIM(ratio)}")
 
     if daily:
-        print(f"\n  最近 7 天学习时长：")
+        print()
+        print(f"  {BOLD('最近 7 天：')}")
         sorted_days = sorted(daily.keys())[-7:]
         max_h = max(daily[d] for d in sorted_days) or 1
         for d in sorted_days:
             h = daily[d]
-            w = int(h / max_h * 20)
-            print(f"  {d[-5:]}  {'█' * w:<20}  {h:.1f}h")
+            print(f"  {DIM(d[-5:])}  {hbar(h, max_h)}  {YELLOW(f'{h:.1f}h')}")
 
     total_ms = sum(len(s["steps"]) for s in path["stages"])
     done_ms  = sum(1 for e in entries if e.get("milestone_done"))
-    print(f"\n  里程碑：{done_ms}/{total_ms} 已完成")
-    print("═" * 52 + "\n")
+    ms_color = GREEN if done_ms == total_ms else YELLOW
+    print()
+    print(f"  {BOLD('里程碑')}：{ms_color(f'{done_ms}/{total_ms}')} 已完成"
+          + (GREEN("  🎉 全部完成！") if done_ms == total_ms else ""))
+    print("  " + "═" * W + "\n")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -693,15 +727,30 @@ def export_pdf() -> None:
 
         pdf_path = os.path.join(BASE_DIR, "learning_path_report.pdf")
 
-        # 注册中文字体
-        cn_font = "Helvetica"
+        # 注册中文字体；找不到时尝试 pypinyin 转拼音兜底
+        cn_font   = "Helvetica"
+        _cn2py    = None    # 拼音转换函数，None 表示直接用原文
         font_path = _find_cn_font()
         if font_path:
             try:
                 pdfmetrics.registerFont(TTFont("CNFont", font_path))
                 cn_font = "CNFont"
             except Exception:
-                pass   # 字体加载失败则回退 Helvetica
+                pass   # 字体加载失败则尝试拼音兜底
+
+        if cn_font == "Helvetica":
+            # 没有中文字体 → 尝试 pypinyin 将中文转为带声调拼音
+            try:
+                from pypinyin import lazy_pinyin, Style
+                def _cn2py(text: str) -> str:
+                    return " ".join(lazy_pinyin(text, style=Style.TONE))
+            except ImportError:
+                # pypinyin 也没有 → 保留原文（中文字符显示为方框，但不崩溃）
+                _cn2py = None
+
+        def _safe(text: str) -> str:
+            """若需要转拼音则转，否则直接返回原文。"""
+            return _cn2py(text) if _cn2py else text
 
         def style(name, **kw):
             return ParagraphStyle(name, fontName=cn_font, **kw)
@@ -715,12 +764,15 @@ def export_pdf() -> None:
         doc   = SimpleDocTemplate(pdf_path, pagesize=A4,
                                   leftMargin=20*mm, rightMargin=20*mm,
                                   topMargin=20*mm, bottomMargin=20*mm)
-        story = [Paragraph("个性化学习路径报告", title_s), Spacer(1, 4*mm)]
+        story = [Paragraph(_safe("个性化学习路径报告"), title_s), Spacer(1, 4*mm)]
 
         info_data = [
-            ["学习目标", path["goal"]], ["当前水平", path["level"]],
-            ["领域识别", path["domain"]], ["每周时间", f"{path['hours_per_week']} 小时"],
-            ["计划周期", f"{path['total_weeks']} 周"], ["生成时间", path["generated_at"]],
+            [_safe("学习目标"), _safe(path["goal"])],
+            [_safe("当前水平"), _safe(path["level"])],
+            [_safe("领域识别"), _safe(path["domain"])],
+            [_safe("每周时间"), f"{path['hours_per_week']} h"],
+            [_safe("计划周期"), f"{path['total_weeks']} " + _safe("周")],
+            [_safe("生成时间"), path["generated_at"]],
         ]
         t = Table(info_data, colWidths=[35*mm, 130*mm])
         t.setStyle(TableStyle([
@@ -736,21 +788,22 @@ def export_pdf() -> None:
 
         step_global = 0
         for stage in path["stages"]:
-            story.append(Paragraph(f"【{stage['stage']}阶段】（约 {stage['weeks']} 周）", h2_s))
+            story.append(Paragraph(
+                _safe(f"【{stage['stage']}阶段】") + f"（{_safe('约')} {stage['weeks']} {_safe('周')}）", h2_s))
             for step in stage["steps"]:
                 step_global += 1
-                story.append(Paragraph(f"Step {step_global}：{step['name']}", h3_s))
-                story.append(Paragraph(f"📅 {step['week_range']}  |  共 {step['hours_total']}h", caption_s))
-                story.append(Paragraph(f"🏆 里程碑：{step['milestone']}", body_s))
-                res  = "  推荐：" + "  /  ".join(r.split("（")[0] for r in step["resources"])
-                chk  = "  检验：" + "；".join(c.split("：")[0] for c in step["checkpoints"])
+                story.append(Paragraph(f"Step {step_global}：{_safe(step['name'])}", h3_s))
+                story.append(Paragraph(f"{step['week_range']}  |  {step['hours_total']}h", caption_s))
+                story.append(Paragraph(_safe(f"里程碑：{step['milestone']}"), body_s))
+                res  = _safe("推荐：") + "  /  ".join(_safe(r.split("（")[0]) for r in step["resources"])
+                chk  = _safe("检验：") + "；".join(_safe(c.split("：")[0]) for c in step["checkpoints"])
                 story += [Paragraph(res, caption_s), Paragraph(chk, caption_s), Spacer(1, 2*mm)]
 
-        story.append(Paragraph("动态调整原则", h2_s))
+        story.append(Paragraph(_safe("动态调整原则"), h2_s))
         for line in ["落后 1 周：加密度，跳扩展，专注核心",
                      "落后 3 周：重新规划里程碑，降低深度要求",
                      "落后 5 周+：重评目标，从最近完成点重启"]:
-            story.append(Paragraph(f"• {line}", body_s))
+            story.append(Paragraph(f"• {_safe(line)}", body_s))
 
         doc.build(story)
         print(f"\n✅ PDF 已导出：{pdf_path}\n")
