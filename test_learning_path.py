@@ -210,6 +210,104 @@ class TestGeneratePath(unittest.TestCase):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# 100 组参数化压测
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestGeneratePathStress(unittest.TestCase):
+    """
+    100 组随机参数压测，覆盖多领域 × 多等级 × 宽周数/小时数范围。
+    每组断言：
+      1. 阶段周数之和严格等于 total_weeks
+      2. 步骤 week_range 连续不重叠
+      3. 每步骤 hours_total = weeks × hours_per_week
+      4. 每阶段至少 1 个步骤
+      5. 生成不抛异常
+    """
+
+    # 固定 seed 保证可复现
+    _SEED  = 2026
+    _COUNT = 100
+
+    _GOALS = [
+        "学Python编程写后端服务",
+        "用python做数据可视化",
+        "备考雅思7分",
+        "机器学习kaggle竞赛",
+        "学汉语备考HSK",
+        "零基础学西班牙语DELE",
+        "学Figma做UI设计",
+        "成为产品经理写PRD",
+        "提升写作博客创作能力",
+        "学烹饪",                  # 通用兜底
+        "深度学习PyTorch项目",
+        "英文写作雅思",
+        "数据分析pandas sklearn",
+    ]
+    _LEVELS = ["零基础", "初级", "中级", "高级"]
+
+    @classmethod
+    def _gen_cases(cls):
+        import random
+        rng = random.Random(cls._SEED)
+        return [
+            (
+                rng.choice(cls._GOALS),
+                rng.choice(cls._LEVELS),
+                rng.randint(3, 20),    # hours_per_week
+                rng.randint(1, 60),    # total_weeks（含极端1周）
+            )
+            for _ in range(cls._COUNT)
+        ]
+
+    def _check_path(self, goal, level, hours, weeks):
+        path = lp.generate_path(goal, level, hours, weeks)
+
+        # 1. 周数精确
+        actual_weeks = sum(s["weeks"] for s in path["stages"])
+        self.assertEqual(
+            actual_weeks, weeks,
+            f"周数不符: plan={weeks} actual={actual_weeks} | {goal} {level} {hours}h"
+        )
+
+        # 2. 周次连续
+        prev_end = 0
+        for stage in path["stages"]:
+            for step in stage["steps"]:
+                parts = step["week_range"].replace("第", "").replace("周", "").split("~")
+                start, end = int(parts[0].strip()), int(parts[1].strip())
+                self.assertEqual(
+                    start, prev_end + 1,
+                    f"周次不连续: {step['week_range']} (prev_end={prev_end}) | {goal} {level} {weeks}w"
+                )
+                self.assertEqual(
+                    end, start + step["weeks"] - 1,
+                    f"week_range 与 weeks 不符: {step['week_range']} weeks={step['weeks']}"
+                )
+                prev_end = end
+
+        # 3. hours_total 正确
+        for stage in path["stages"]:
+            for step in stage["steps"]:
+                self.assertEqual(
+                    step["hours_total"], step["weeks"] * hours,
+                    f"hours_total 错: {step['name']} {step['hours_total']} != {step['weeks'] * hours}"
+                )
+
+        # 4. 每阶段步骤非空
+        for stage in path["stages"]:
+            self.assertGreater(
+                len(stage["steps"]), 0,
+                f"空 steps: 阶段={stage['stage']} | {goal} {level} {weeks}w"
+            )
+
+    def test_stress_100_cases(self):
+        """100 组随机参数压测，全部断言通过。"""
+        for goal, level, hours, weeks in self._gen_cases():
+            with self.subTest(goal=goal, level=level, hours=hours, weeks=weeks):
+                self._check_path(goal, level, hours, weeks)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # 动态调整建议
 # ─────────────────────────────────────────────────────────────────────────────
 
