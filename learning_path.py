@@ -309,9 +309,11 @@ def detect_domain(goal: str) -> str:
     """
     import re as _re
 
-    # 否定词模式：否定词 + 任意非标点字符（中英文空格）+ 关键词
+    # 否定词模式：否定词 + 紧跟的一个词（不跨标点/空格/逗号）
+    # 只遮掉 "不想学Python" 这一片，不贪心吃掉后续句子
     _NEG_PATTERN = _re.compile(
-        r"(不想|不学|不做|不需要|不打算|不考虑|don'?t\s+want|not\s+(?:learn|study|do))\s*\S{0,6}",
+        r"(不想|不学|不做|不需要|不打算|不考虑|don'?t\s+want|not\s+(?:learn|study|do))"
+        r"[\s的]?[^\s，,。！？!?]{0,8}",
         _re.IGNORECASE,
     )
     g = goal.lower()

@@ -116,6 +116,8 @@ class TestDetectDomain(unittest.TestCase):
         self.assertEqual(lp.detect_domain("我不想学Python，想做UI设计"), "设计")
         self.assertEqual(lp.detect_domain("不想学编程，想备考雅思"), "英语")
         self.assertEqual(lp.detect_domain("不打算考雅思，想学西班牙语"), "西班牙语")
+        # 否定词不应贪心吃掉后续句子（「不考虑写作」不能把「产品经理」也遮掉）
+        self.assertEqual(lp.detect_domain("不考虑写作，专注产品经理"), "产品")
 
     def test_negation_filter_english(self):
         # 英文否定词也应过滤
