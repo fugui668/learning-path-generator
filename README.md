@@ -1,4 +1,4 @@
-# 🎯 个性化学习路径生成器 v4.0
+# 🎯 个性化学习路径生成器 v4.3
 
 根据个人学习目标、当前水平、可用时间，自动生成有序学习计划 + 资源推荐 + 进度检验方案。
 
@@ -117,7 +117,14 @@ python3 -m learning_path --version
         ↓
   步骤构建（_build_steps）
         ↓
-  输出 / 保存 / 导出
+  ┌─────────────────────────────────┐
+  │  输出方式（任选）               │
+  │  • CLI ASCII 展示               │
+  │  • 保存 my_path.json            │
+  │  • Flask Web（localhost:5000）  │
+  │  • 导出 PDF                     │
+  │  • 在线资源推荐（--fetch-resources）│
+  └─────────────────────────────────┘
 ```
 
 ---
@@ -189,7 +196,7 @@ python3 -m learning_path --version
 
 | 取舍项 | 选择 | 原因 |
 |--------|------|------|
-| 实现方式 | CLI（非 Web/App） | 零依赖，快速可运行，专注核心逻辑 |
+| 实现方式 | CLI + Flask Web | CLI 零依赖快速可运行；Web 提供可视化界面，手机也可访问 |
 | 资源推荐 | 类型推荐（非真实链接） | 避免链接失效，普适性强 |
 | 领域覆盖 | 9 大领域 + 自定义扩展 | domains.json 可随时新增，无需改代码 |
 | 路径算法 | 规则引擎（非 AI API） | 本地运行，输出稳定可预期，无网络依赖 |
@@ -199,7 +206,7 @@ python3 -m learning_path --version
 | 进度定位 | 按当前周精确匹配步骤 | 用户清晰知道自己在哪一步 |
 
 ### 未完成项
-- [ ] 接入 AI API 动态生成路径（OpenAI / 本地大模型）
+- [ ] 接入 LLM API 动态生成路径（DeepSeek / OpenAI），使用 `--ai` flag 触发，静态模板作 fallback
 
 ---
 
@@ -208,20 +215,33 @@ python3 -m learning_path --version
 ```
 learning-path-generator/
 ├── learning_path.py              # 向后兼容 shim（调用包入口）
-├── learning_path/                # 主包（v4.0 模块化）
+├── learning_path/                # 主包（v4.3）
 │   ├── __init__.py               # 导出公共 API
 │   ├── __main__.py               # python -m learning_path 入口
-│   ├── _version.py               # 版本号
+│   ├── _version.py               # 版本号（当前 4.3）
 │   ├── domains.py                # 领域注册表加载
 │   ├── core.py                   # 核心路径生成逻辑
 │   ├── log.py                    # 日志读写
 │   ├── render.py                 # 输出渲染（CLI/PDF）
+│   ├── resources.py              # 动态资源集成（YouTube降级链+精选库+缓存）
 │   ├── cli.py                    # 命令行交互入口
 │   └── domains.json              # 领域配置数据
-├── test_learning_path.py         # 单元测试（91个）
+├── web/                          # Flask Web 界面
+│   ├── app.py                    # Flask 主程序（7个路由）
+│   ├── templates/                # Jinja2 模板
+│   │   ├── base.html             # 基础布局
+│   │   ├── index.html            # 首页：输入生成路径
+│   │   ├── path.html             # 路径详情
+│   │   ├── progress.html         # 进度追踪 + 打卡
+│   │   ├── chart.html            # 学习图表（Chart.js）
+│   │   └── error.html            # 统一错误页
+│   └── static/
+│       └── style.css             # 样式
+├── test_learning_path.py         # 单元测试（103个，含 Flask 路由测试）
 ├── README.md                     # 本文件
 ├── my_path.json                  # 生成后保存的路径（gitignore）
 ├── learning_log.json             # 学习日志（gitignore）
+├── resource_cache.json           # 在线资源缓存（gitignore）
 └── learning_path_report.pdf      # 导出的 PDF（gitignore）
 ```
 
