@@ -37,7 +37,8 @@ DOMAIN_REGISTRY: dict = {
     "编程": {
         "priority": 5,
         "keywords": ["编程", "python", "java", "javascript", "c++", "代码", "开发",
-                     "前端", "后端", "算法", "programming", "coding", "软件"],
+                     "前端", "后端", "算法", "programming", "coding", "软件",
+                     "backend", "frontend", "web dev", "software", "typescript", "golang", "rust", "kotlin"],
         "stages": {
             "入门": [
                 {"name": "环境搭建与基础语法",   "weeks": 1, "milestone": "能写出 Hello World 并理解变量/循环/函数"},
@@ -60,7 +61,8 @@ DOMAIN_REGISTRY: dict = {
         "priority": 8,
         "keywords": ["数据分析", "数据科学", "机器学习", "深度学习", "统计",
                      "data science", "data analysis", "kaggle", "pandas", "sklearn",
-                     "python数据", "python分析", "用python做", "做数据"],
+                     "python数据", "python分析", "用python做", "做数据",
+                     "machine learning", "deep learning", "neural network", "tensorflow", "pytorch", "numpy", "matplotlib"],
         "stages": {
             "入门": [
                 {"name": "数据思维与 Excel 基础",  "weeks": 1, "milestone": "能用 Excel 完成数据透视表分析"},
@@ -81,7 +83,8 @@ DOMAIN_REGISTRY: dict = {
     },
     "英语": {
         "priority": 7,
-        "keywords": ["英语", "english", "雅思", "托福", "ielts", "toefl", "英文口语", "英文写作"],
+        "keywords": ["英语", "english", "雅思", "托福", "ielts", "toefl", "英文口语", "英文写作",
+                     "english speaking", "english writing", "improve english", "learn english", "gre", "gmat"],
         "stages": {
             "入门": [
                 {"name": "音标与基础词汇（1000词）", "weeks": 2, "milestone": "能听懂慢速英语新闻标题"},
@@ -102,7 +105,8 @@ DOMAIN_REGISTRY: dict = {
     },
     "中文": {
         "priority": 7,
-        "keywords": ["中文", "汉语", "普通话", "hsk", "chinese", "汉字"],
+        "keywords": ["中文", "汉语", "普通话", "hsk", "chinese", "汉字",
+                     "mandarin", "learn chinese", "learn mandarin", "chinese characters"],
         "stages": {
             "入门": [
                 {"name": "汉字基础与拼音（300字）", "weeks": 2, "milestone": "能认读 300 个常用汉字，掌握拼音拼写"},
@@ -123,7 +127,8 @@ DOMAIN_REGISTRY: dict = {
     },
     "西班牙语": {
         "priority": 9,
-        "keywords": ["西班牙语", "español", "spanish", "dele", "西语"],
+        "keywords": ["西班牙语", "español", "spanish", "dele", "西语",
+                     "learn spanish", "hablar español", "espanol"],
         "stages": {
             "入门": [
                 {"name": "发音规则与基础词汇（500词）",      "weeks": 2, "milestone": "掌握西班牙语发音规则，能朗读简单句子"},
@@ -145,7 +150,8 @@ DOMAIN_REGISTRY: dict = {
     "设计": {
         "priority": 6,
         "keywords": ["设计", "ui", "ux", "figma", "photoshop", "illustrator",
-                     "design", "排版", "视觉", "交互设计", "品牌设计"],
+                     "design", "排版", "视觉", "交互设计", "品牌设计",
+                     "graphic design", "ui design", "ux design", "sketch", "adobe xd", "motion design"],
         "stages": {
             "入门": [
                 {"name": "设计基础理论（色彩/排版/构图）", "weeks": 2, "milestone": "能分析一张海报的设计原则"},
@@ -167,7 +173,8 @@ DOMAIN_REGISTRY: dict = {
     "产品": {
         "priority": 6,
         "keywords": ["产品经理", "产品设计", "product", "prd", "需求文档",
-                     "原型", "用户研究", "增长", "产品规划"],
+                     "原型", "用户研究", "增长", "产品规划",
+                     "product manager", "product design", "roadmap", "user story", "agile", "scrum"],
         "stages": {
             "入门": [
                 {"name": "产品思维与方法论",               "weeks": 2, "milestone": "能用 AARRR 分析一款产品"},
@@ -189,7 +196,8 @@ DOMAIN_REGISTRY: dict = {
     "写作": {
         "priority": 5,
         "keywords": ["写作", "writing", "文章", "创作", "小说", "博客", "内容创作",
-                     "文案", "剧本", "非虚构"],
+                     "文案", "剧本", "非虚构",
+                     "copywriting", "content writing", "creative writing", "storytelling", "essay", "fiction"],
         "stages": {
             "入门": [
                 {"name": "写作基础：结构与逻辑",           "weeks": 2, "milestone": "能写出结构清晰的 500 字文章"},

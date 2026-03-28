@@ -434,5 +434,56 @@ class TestDomainRegistry(unittest.TestCase):
                         self.assertGreater(step["weeks"], 0)
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# _locate_current_step 单元测试
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestLocateCurrentStep(unittest.TestCase):
+    """覆盖 _locate_current_step 的各类边界情况。"""
+
+    def setUp(self):
+        # 固定路径：英语 初级 8h/20周 → 入门+进阶+高级三段
+        self._path = lp.generate_path("备考雅思7分", "初级", 8, 20)
+        self._total = sum(s["weeks"] for s in self._path["stages"])
+
+    def test_first_week_located(self):
+        loc = lp._locate_current_step(self._path, 1)
+        self.assertIn("📍", loc)
+        self.assertIn("Step 1", loc)
+
+    def test_last_week_located(self):
+        loc = lp._locate_current_step(self._path, self._total)
+        self.assertIn("📍", loc)
+
+    def test_beyond_total_weeks_congratulation(self):
+        loc = lp._locate_current_step(self._path, self._total + 1)
+        self.assertIn("🎉", loc)
+        self.assertIn(str(self._total), loc)
+
+    def test_middle_week_shows_correct_stage(self):
+        # 找第一个进阶步骤的开始周，验证识别为进阶阶段
+        for stage in self._path["stages"]:
+            if stage["stage"] == "进阶":
+                first_step = stage["steps"][0]
+                w = int(first_step["week_range"].replace("第","").replace("周","").split("~")[0].strip())
+                loc = lp._locate_current_step(self._path, w)
+                self.assertIn("进阶阶段", loc)
+                break
+
+    def test_all_weeks_return_non_empty_string(self):
+        for w in range(1, self._total + 3):
+            with self.subTest(week=w):
+                loc = lp._locate_current_step(self._path, w)
+                self.assertIsInstance(loc, str)
+                self.assertGreater(len(loc), 0)
+
+    def test_short_path_single_stage(self):
+        # 极短路径（3周），只有一个阶段，第1周和第3周都应定位到
+        p = lp.generate_path("学Python编程", "零基础", 10, 3)
+        self.assertIn("📍", lp._locate_current_step(p, 1))
+        self.assertIn("📍", lp._locate_current_step(p, 3))
+        self.assertIn("🎉", lp._locate_current_step(p, 4))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -1,4 +1,4 @@
-# 🎯 个性化学习路径生成器 v2.0
+# 🎯 个性化学习路径生成器 v3.2
 
 根据个人学习目标、当前水平、可用时间，自动生成有序学习计划 + 资源推荐 + 进度检验方案。
 
@@ -65,7 +65,7 @@ python3 learning_path.py --export
 每阶段 3 个检查点：概念自测 / 实操验证 / 成果展示
 
 ### 5. 进度追踪（--track）
-输入落后周数，按 3 档给出动态调整建议
+输入「当前第几周」，**精确定位到所在阶段和步骤**；再输入落后周数，按 3 档给出动态调整建议
 
 ### 6. 学习日志（--log / --show-log）
 每日记录学习时长、步骤、里程碑完成情况、备注，持久化存储到 `learning_log.json`
@@ -113,9 +113,14 @@ python3 learning_path.py --export
 | 领域覆盖 | 9 大领域 | 覆盖主流学习场景 |
 | 路径算法 | 规则引擎（非 AI API） | 本地运行，输出稳定可预期 |
 | 周数不足时 | 智能收缩阶段数 | 避免每阶段时间极短、深度不足 |
+| 领域识别 | 否定词过滤 + priority 决胜 | 「不想学X，要学Y」不误判 |
+| 步骤合并 | 里程碑拼接两段摘要 | 周数极端时合并不丢信息 |
+| 进度定位 | 按当前周精确定位步骤 | 用户清晰知道自己在哪一步 |
 
 ### 未完成项
 - [ ] 接入 AI API 动态生成路径（OpenAI / 本地大模型）
+- [ ] ASCII 进度图表美化（可选换用 `rich` 库）
+- [ ] PDF 中文字体兜底（找不到字体时降级为拼音而非 txt）
 
 ---
 
@@ -124,8 +129,17 @@ python3 learning_path.py --export
 ```
 learning-path-generator/
 ├── learning_path.py          # 主程序（全部逻辑）
+├── test_learning_path.py     # 单元测试（49个）+ 压测（500组）
 ├── README.md                 # 本文件
 ├── my_path.json              # 生成后保存的路径（gitignore）
 ├── learning_log.json         # 学习日志（gitignore）
 └── learning_path_report.pdf  # 导出的 PDF（gitignore）
 ```
+
+## 测试
+
+```bash
+python3 -m unittest test_learning_path -v
+```
+
+覆盖：输入解析 / 领域检测（含否定词）/ 路径生成边界 / 步骤连续性 / 进度定位 / 日志读写 / 500组随机压测
